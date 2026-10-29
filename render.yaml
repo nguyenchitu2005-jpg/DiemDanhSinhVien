@@ -1,0 +1,33 @@
+# Render Blueprint: Render → New → Blueprint → chọn repo GitHub này. Các biến "sync: false" Render sẽ hỏi giá trị khi tạo.
+services:
+  - type: web
+    name: diemdanh-api
+    runtime: docker
+    plan: free
+    dockerContext: ./server
+    dockerfilePath: ./server/Dockerfile
+    healthCheckPath: /swagger/index.html
+    buildFilter:
+      paths:
+        - server/** # sửa code Flutter thì không build lại API
+    envVars:
+      - key: ConnectionStrings__DefaultConnection # chuỗi kết nối Neon, dán nguyên dạng postgresql://...
+        sync: false
+      - key: JWTKey__Secret
+        generateValue: true
+      - key: SeedAdmin__Email
+        sync: false
+      - key: SeedAdmin__Password
+        sync: false
+      - key: Brevo__ApiKey
+        sync: false
+      - key: Brevo__SenderEmail
+        sync: false
+      - key: Twilio__AccountSid
+        sync: false
+      - key: Twilio__AuthToken
+        sync: false
+      - key: Twilio__From
+        sync: false
+      - key: Google__WebClientId
+        sync: false

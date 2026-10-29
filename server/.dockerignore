@@ -1,0 +1,4 @@
+**/bin/
+**/obj/
+DiemDanhApi.Tests/
+**/appsettings.Production.json
