@@ -10,6 +10,11 @@ Future<Position> currentPosition() async {
   if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
     throw ApiException('App cần quyền truy cập vị trí');
   }
+  // Android 12+ cho phép chỉ cấp vị trí gần đúng (sai số vài km): mở cài đặt để bật vị trí chính xác
+  if (await Geolocator.getLocationAccuracy() == LocationAccuracyStatus.reduced) {
+    await Geolocator.openAppSettings();
+    throw ApiException('Hãy bật "Sử dụng vị trí chính xác" trong Quyền > Vị trí của app');
+  }
   final position = await Geolocator.getCurrentPosition(
     locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 20)),
   );
