@@ -17,7 +17,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
   late Future<dynamic> _courses = Api.get('Courses');
 
   Future<void> _reload() async {
-    setState(() => _courses = Api.get('Courses'));
+    setState(() { _courses = Api.get('Courses'); });
     await _courses;
   }
 
@@ -35,9 +35,9 @@ class _TeacherScreenState extends State<TeacherScreen> {
             title: Auth.fullName,
             actions: [profileAction(context)],
             stats: [
-              (Icons.class_outlined, '${courses.length}', 'Lớp'),
-              (Icons.event_note_outlined, '${sum('sessionCount')}', 'Buổi học'),
-              (Icons.qr_code_2, '${sum('openSessionCount')}', 'Đang mở'),
+              Stat(Icons.class_outlined, '${courses.length}', 'Lớp'),
+              Stat(Icons.event_note_outlined, '${sum('sessionCount')}', 'Buổi học'),
+              Stat(Icons.qr_code_2, '${sum('openSessionCount')}', 'Đang mở'),
             ],
           );
         },

@@ -39,7 +39,8 @@ Future<bool> confirm(BuildContext context, String text) async =>
     ) ??
     false;
 
-/// Hiện dữ liệu của 1 Future: đang tải / lỗi (nút thử lại) / kéo xuống để tải lại
+/// Hiện dữ liệu của 1 Future: đang tải / lỗi (nút thử lại) / kéo xuống để tải lại.
+/// FutureBuilder giữ dữ liệu cũ khi đổi sang Future mới nên tải lại không làm mất danh sách đang xem.
 class AsyncView<T> extends StatelessWidget {
   const AsyncView({super.key, required this.future, required this.onRefresh, required this.builder});
 
@@ -51,7 +52,15 @@ class AsyncView<T> extends StatelessWidget {
   Widget build(BuildContext context) => FutureBuilder<T>(
     future: future,
     builder: (context, snap) {
-      if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+      final loading = snap.connectionState != ConnectionState.done;
+      // Tải lại (lọc, sau khi thêm/sửa/xoá): giữ dữ liệu cũ trên màn hình, chỉ hiện thanh tiến độ mảnh, không nháy trắng
+      if (loading && snap.hasData) {
+        return Stack(children: [
+          RefreshIndicator(onRefresh: onRefresh, child: builder(snap.data as T)),
+          const LinearProgressIndicator(minHeight: 2),
+        ]);
+      }
+      if (loading) return const Center(child: CircularProgressIndicator());
       if (snap.hasError) {
         return Center(
           child: Padding(
@@ -158,8 +167,14 @@ class RoleChip extends StatelessWidget {
   }
 }
 
-/// Ô thống kê trên đầu trang: (biểu tượng, số, nhãn)
-typedef Stat = (IconData, String, String);
+/// Ô thống kê trên đầu trang; có onTap thì bấm vào để xem chi tiết
+class Stat {
+  const Stat(this.icon, this.value, this.label, {this.onTap});
+  final IconData icon;
+  final String value;
+  final String label;
+  final VoidCallback? onTap;
+}
 
 /// Đầu trang chủ có dải màu giống màn đăng nhập: lời chào, nút hồ sơ, các ô thống kê, TabBar (nếu có)
 class HomeHeader extends StatelessWidget {
@@ -195,18 +210,27 @@ class HomeHeader extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Row(children: [
-              for (final (icon, value, label) in stats)
+              for (final stat in stats)
                 Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(16)),
-                    child: Column(children: [
-                      Icon(icon, color: kGold, size: 20),
-                      const SizedBox(height: 4),
-                      Text(value, style: const TextStyle(color: kInk, fontSize: 20, fontWeight: FontWeight.bold)),
-                      Text(label, style: TextStyle(color: kInk.withValues(alpha: 0.7), fontSize: 12)),
-                    ]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Material(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: stat.onTap,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Column(children: [
+                            Icon(stat.icon, color: kGold, size: 20),
+                            const SizedBox(height: 4),
+                            Text(stat.value, style: const TextStyle(color: kInk, fontSize: 20, fontWeight: FontWeight.bold)),
+                            Text(stat.label, style: TextStyle(color: kInk.withValues(alpha: 0.7), fontSize: 12)),
+                          ]),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ]),

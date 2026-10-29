@@ -25,12 +25,12 @@ class _CourseScreenState extends State<CourseScreen> {
   Future<dynamic> _loadStudents() => Api.get('Courses/${_course['id']}/students');
 
   Future<void> _reloadSessions() async {
-    setState(() => _sessions = _loadSessions());
+    setState(() { _sessions = _loadSessions(); });
     await _sessions;
   }
 
   Future<void> _reloadStudents() async {
-    setState(() => _students = _loadStudents());
+    setState(() { _students = _loadStudents(); });
     await _students;
   }
 

@@ -31,7 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Future<dynamic> _me = Api.get('Auth/me');
 
   Future<void> _reload() async {
-    setState(() => _me = Api.get('Auth/me'));
+    setState(() { _me = Api.get('Auth/me'); });
     await _me;
   }
 

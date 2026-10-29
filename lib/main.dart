@@ -46,13 +46,13 @@ class App extends StatelessWidget {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(50),
+          minimumSize: const Size(64, 50), // không dùng fromHeight: nút trong hộp thoại bị kéo hết chiều ngang
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(50),
+          minimumSize: const Size(64, 50), // không dùng fromHeight: nút trong hộp thoại bị kéo hết chiều ngang
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
