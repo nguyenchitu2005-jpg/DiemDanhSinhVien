@@ -100,8 +100,8 @@ git push -u origin main
 | `Google__WebClientId` | mục 5 |
 
    `JWTKey__Secret` được Render tự sinh. Biến nào chưa có thì để trống, sau này sửa ở tab **Environment** rồi bấm **Manual Deploy**.
-3. Đợi build xong (lần đầu khoảng 5 phút) → mở `https://diemdanh-api-xxxx.onrender.com/swagger`. Bảng và admin được tạo ở lần chạy đầu.
-4. Sửa `.env` của app: `BASE_URL=https://diemdanh-api-xxxx.onrender.com/api/`.
+3. Đợi build xong (lần đầu khoảng 5 phút) → mở `https://diemdanh-api-kuux.onrender.com/swagger`. Bảng và admin được tạo ở lần chạy đầu.
+4. Sửa `.env` của app: `BASE_URL=https://diemdanh-api-kuux.onrender.com/api/`.
 
 Gói Free của Render **tự ngủ sau 15 phút không có ai gọi**. Lần gọi đầu sau đó mất khoảng 50 giây (app đã cho chờ tới 60 giây).
 Trước khi thuyết trình, hãy mở link Swagger một lần để đánh thức server.
