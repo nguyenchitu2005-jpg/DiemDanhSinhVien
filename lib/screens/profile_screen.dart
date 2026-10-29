@@ -124,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(children: [
               ListTile(leading: const Icon(Icons.person_outline), title: const Text('Tên đăng nhập'), subtitle: Text(me['userName'])),
               ListTile(leading: const Icon(Icons.email_outlined), title: const Text('Email'), subtitle: Text(me['email'] ?? '')),
-              ListTile(leading: const Icon(Icons.phone_outlined), title: const Text('Số điện thoại'), subtitle: Text(me['phoneNumber'] ?? 'Chưa có (cần để nhận OTP qua SMS)')),
+              ListTile(leading: const Icon(Icons.phone_outlined), title: const Text('Số điện thoại'), subtitle: Text(me['phoneNumber'] ?? 'Chưa có')),
               if (me['role'] == 'Student')
                 ListTile(leading: const Icon(Icons.numbers), title: const Text('Mã sinh viên'), subtitle: Text(me['studentCode'] ?? '')),
               ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('Sửa thông tin'), onTap: () => _edit(me)),

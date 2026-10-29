@@ -20,9 +20,9 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
         [Required(ErrorMessage = "Cần nhập họ tên")] string FullName,
         string? PhoneNumber,
         string? StudentCode);
-    public record LoginModel([Required] string UserName, [Required] string Password, string Channel = "email");
+    public record LoginModel([Required] string UserName, [Required] string Password);
     // Gửi lại cả mật khẩu: mã OTP chỉ có giá trị khi đi cùng mật khẩu đúng (không dò được mã nếu chỉ biết tên đăng nhập)
-    public record VerifyOtpModel([Required] string UserName, [Required] string Password, [Required] string Code, string Channel = "email");
+    public record VerifyOtpModel([Required] string UserName, [Required] string Password, [Required] string Code);
     public record GoogleModel([Required] string IdToken);
     public record FaceModel([Required] List<double> Embedding);
     public record FaceLoginModel([Required] string UserName, [Required] List<List<double>> Embeddings);
@@ -52,34 +52,31 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
         if (!result.Succeeded) return BadRequest(Msg(Errors(result)));
         await userManager.AddToRoleAsync(user, Roles.Student);
 
-        return await SendOtp(user, "email");
+        return await SendOtp(user);
     }
 
-    /// Bước 1: đúng tên đăng nhập + mật khẩu thì gửi OTP qua email hoặc SMS
+    /// Bước 1: đúng tên đăng nhập + mật khẩu thì gửi OTP về email
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginModel model)
     {
         var (user, error) = await CheckPassword(model.UserName, model.Password);
-        return user == null ? error! : await SendOtp(user, model.Channel);
+        return user == null ? error! : await SendOtp(user);
     }
 
-    /// Bước 2: kiểm tra OTP rồi trả JWT. Xác nhận luôn email/số điện thoại vừa nhận mã
+    /// Bước 2: kiểm tra OTP rồi trả JWT. Xác nhận luôn email vừa nhận mã
     [HttpPost("verify-otp")]
     public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpModel model)
     {
         var (user, error) = await CheckPassword(model.UserName, model.Password);
         if (user == null) return error!;
 
-        var sms = model.Channel == "sms";
-        var provider = sms ? TokenOptions.DefaultPhoneProvider : TokenOptions.DefaultEmailProvider;
-        if (!await userManager.VerifyTwoFactorTokenAsync(user, provider, model.Code.Trim()))
+        if (!await userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider, model.Code.Trim()))
         {
             await userManager.AccessFailedAsync(user); // sai nhiều lần thì khoá như sai mật khẩu
             return Unauthorized(Msg("Mã OTP sai hoặc đã hết hạn"));
         }
         await userManager.ResetAccessFailedCountAsync(user);
-        if (sms) user.PhoneNumberConfirmed = true;
-        else user.EmailConfirmed = true;
+        user.EmailConfirmed = true;
         await userManager.UpdateAsync(user);
         return await TokenResult(user);
     }
@@ -197,7 +194,6 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
         var user = await userManager.GetUserAsync(User);
         if (user == null) return NotFound();
         user.FullName = model.FullName.Trim();
-        if (user.PhoneNumber != model.PhoneNumber) user.PhoneNumberConfirmed = false;
         user.PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber) ? null : model.PhoneNumber.Trim();
         user.StudentCode = string.IsNullOrWhiteSpace(model.StudentCode) ? null : model.StudentCode.Trim();
         var result = await userManager.UpdateAsync(user);
@@ -235,23 +231,18 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
         return (user, null);
     }
 
-    private async Task<IActionResult> SendOtp(User user, string channel)
+    private async Task<IActionResult> SendOtp(User user)
     {
-        var sms = channel == "sms";
-        if (sms && string.IsNullOrEmpty(user.PhoneNumber))
-            return BadRequest(Msg("Tài khoản chưa có số điện thoại, hãy chọn OTP qua Email"));
-
-        var code = await userManager.GenerateTwoFactorTokenAsync(user, sms ? TokenOptions.DefaultPhoneProvider : TokenOptions.DefaultEmailProvider);
+        var code = await userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
         try
         {
-            if (sms) await otp.SendSmsAsync(OtpSender.ToE164(user.PhoneNumber!), code);
-            else await otp.SendEmailAsync(user.Email!, code);
+            await otp.SendEmailAsync(user.Email!, code);
         }
         catch (Exception e)
         {
             return StatusCode(StatusCodes.Status502BadGateway, Msg("Không gửi được OTP: " + e.Message));
         }
-        return Ok(new { Status = true, OtpRequired = true, Channel = sms ? "sms" : "email", SentTo = Mask(sms ? user.PhoneNumber! : user.Email!) });
+        return Ok(new { Status = true, OtpRequired = true, SentTo = Mask(user.Email!) });
     }
 
     private async Task<IActionResult> TokenResult(User user)

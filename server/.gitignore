@@ -1,6 +1,6 @@
 bin/
 obj/
 *.user
-# Chứa connection string, mật khẩu Gmail, Twilio... của host
+# Chứa connection string, mật khẩu Gmail, khoá Brevo... của host
 appsettings.Production.json
 Properties/PublishProfiles/

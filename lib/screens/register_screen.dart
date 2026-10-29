@@ -39,7 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _busy = false);
     if (r == null) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => OtpScreen(userName: _user.text.trim(), password: _pass.text, channel: 'email', sentTo: r['sentTo']),
+      builder: (_) => OtpScreen(userName: _user.text.trim(), password: _pass.text, sentTo: r['sentTo']),
     ));
   }
 
@@ -58,7 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 : null),
         Field(_email, 'Email', icon: Icons.email_outlined, keyboard: TextInputType.emailAddress,
             validator: (v) => v != null && RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()) ? null : 'Email không hợp lệ'),
-        Field(_phone, 'Số điện thoại (để nhận OTP qua SMS)', icon: Icons.phone_outlined, keyboard: TextInputType.phone),
+        Field(_phone, 'Số điện thoại', icon: Icons.phone_outlined, keyboard: TextInputType.phone),
         Field(_pass, 'Mật khẩu', icon: Icons.lock_outline, obscure: true,
             hint: 'VD: Matkhau@123 (hoa, thường, số, ký tự đặc biệt)',
             validator: strongPassword),

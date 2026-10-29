@@ -8,12 +8,11 @@ import '../main.dart';
 import '../widgets.dart';
 import 'login_screen.dart';
 
-/// Nhập mã OTP 6 số (gửi qua email hoặc SMS) để hoàn tất đăng nhập / xác nhận email khi đăng ký
+/// Nhập mã OTP 6 số gửi về email để hoàn tất đăng nhập / xác nhận email khi đăng ký
 class OtpScreen extends StatefulWidget {
-  const OtpScreen({super.key, required this.userName, required this.password, required this.channel, required this.sentTo});
+  const OtpScreen({super.key, required this.userName, required this.password, required this.sentTo});
   final String userName;
   final String password;
-  final String channel;
   final String sentTo;
 
   @override
@@ -57,7 +56,6 @@ class _OtpScreenState extends State<OtpScreen> {
       'userName': widget.userName,
       'password': widget.password,
       'code': _code.text.trim(),
-      'channel': widget.channel,
     }), showSuccess: false);
     if (!mounted) return;
     setState(() => _busy = false);
@@ -71,7 +69,6 @@ class _OtpScreenState extends State<OtpScreen> {
     final r = await guard(context, () => Api.post('Auth/login', {
       'userName': widget.userName,
       'password': widget.password,
-      'channel': widget.channel,
     }), showSuccess: false);
     if (r != null && mounted) {
       showMsg(context, 'Đã gửi lại mã');
@@ -82,7 +79,7 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   Widget build(BuildContext context) => AuthLayout(
     title: 'Xác thực OTP',
-    subtitle: 'Mã đã gửi qua ${widget.channel == 'sms' ? 'SMS' : 'email'} tới ${widget.sentTo}',
+    subtitle: 'Mã đã gửi qua email tới ${widget.sentTo}',
     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       TextField(
         controller: _code,

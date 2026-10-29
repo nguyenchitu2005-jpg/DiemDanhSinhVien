@@ -23,11 +23,5 @@ services:
         sync: false
       - key: Brevo__SenderEmail
         sync: false
-      - key: Twilio__AccountSid
-        sync: false
-      - key: Twilio__AuthToken
-        sync: false
-      - key: Twilio__From
-        sync: false
       - key: Google__WebClientId
         sync: false

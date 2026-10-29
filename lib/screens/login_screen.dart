@@ -58,7 +58,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
   final _user = TextEditingController(text: Auth.userName);
   final _pass = TextEditingController();
-  String _channel = 'email';
   bool _busy = false;
   bool _showPass = false;
   static bool _googleReady = false;
@@ -75,18 +74,17 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => homeFor(Auth.role)), (_) => false);
   }
 
-  /// Tên đăng nhập + mật khẩu → server gửi OTP → màn nhập OTP
+  /// Tên đăng nhập + mật khẩu → server gửi OTP về email → màn nhập OTP
   Future<void> _login() async {
     if (!_form.currentState!.validate()) return;
     await _run(() async {
       final r = await guard(context, () => Api.post('Auth/login', {
         'userName': _user.text.trim(),
         'password': _pass.text,
-        'channel': _channel,
       }), showSuccess: false);
       if (r == null || !mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => OtpScreen(userName: _user.text.trim(), password: _pass.text, channel: r['channel'], sentTo: r['sentTo']),
+        builder: (_) => OtpScreen(userName: _user.text.trim(), password: _pass.text, sentTo: r['sentTo']),
       ));
     });
   }
@@ -159,16 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-        Text('Nhận mã OTP qua', style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 8),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'email', icon: Icon(Icons.email_outlined), label: Text('Email')),
-            ButtonSegment(value: 'sms', icon: Icon(Icons.sms_outlined), label: Text('SMS')),
-          ],
-          selected: {_channel},
-          onSelectionChanged: (s) => setState(() => _channel = s.first),
-        ),
+        Text('Mã OTP sẽ được gửi về email của tài khoản', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
         const SizedBox(height: 20),
         FilledButton(
           onPressed: _busy ? null : _login,
