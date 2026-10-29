@@ -77,6 +77,8 @@ Cách cài đặt, chạy và deploy: xem [README.md](README.md).
 | `google_mlkit_face_detection` | 0.15.1 | Tìm khuôn mặt, vị trí 2 mắt, phát hiện nháy mắt (chống ảnh in) |
 | `tflite_flutter` | 0.12.1 | Chạy model FaceNet-512 tạo vector khuôn mặt 512 chiều |
 | `image` | 4.12.0 | Xoay, cắt, căn thẳng ảnh khuôn mặt trước khi đưa vào model |
+| `share_plus` | 13.3.1 | Mở bảng chia sẻ Android để lưu / gửi file Excel điểm danh |
+| `flutter_localizations` | SDK | Lịch, đồng hồ, nút hệ thống hiển thị tiếng Việt |
 | `cupertino_icons` | 1.0.9 | Bộ icon mặc định của Flutter |
 
 ### 3.2. Dùng khi phát triển
@@ -120,6 +122,7 @@ Cách cài đặt, chạy và deploy: xem [README.md](README.md).
 | `Microsoft.EntityFrameworkCore.Tools` | 10.0.13 | Tạo migration (`dotnet ef migrations add`) |
 | `Google.Apis.Auth` | 1.73.0 | Kiểm tra chữ ký, issuer, audience, hạn dùng của Google ID token |
 | `System.Security.Cryptography.Pkcs` | 10.0.13 | Ghim bản mới, thay bản 9.0.11 có lỗ hổng mà `Google.Apis.Auth` kéo vào |
+| `ClosedXML` | 0.105.1 | Tạo file Excel (.xlsx) danh sách điểm danh của buổi học |
 | `Swashbuckle.AspNetCore` | 10.3.1 | Trang Swagger để xem và thử API |
 | `xunit` / `xunit.runner.visualstudio` / `Microsoft.NET.Test.Sdk` | 2.9.3 / 3.1.4 / 17.14.1 | Test (`server/DiemDanhApi.Tests`) |
 
@@ -130,10 +133,10 @@ Cách cài đặt, chạy và deploy: xem [README.md](README.md).
 | `AuthController` | `api/Auth/...` | `register`, `login` (gửi OTP), `verify-otp`, `google`, `face`, `face-login`, `me`, `change-password` |
 | `UsersController` (Admin) | `api/Users` | CRUD tài khoản, đổi vai trò |
 | `CoursesController` | `api/Courses` | CRUD lớp (Admin), sửa vị trí lớp (GV), `join` / `leave` (SV), danh sách SV + nguy cơ cấm thi |
-| `SessionsController` (GV/Admin) | `api/courses/{id}/sessions`, `api/sessions/{id}` | CRUD buổi học, mở/đóng, `qr` (mã QR hiện tại), danh sách điểm danh, điểm danh tay |
+| `SessionsController` | `api/courses/{id}/schedule`, `api/courses/{id}/sessions`, `api/sessions/{id}/...` | Admin: tạo lịch nhiều buổi, CRUD buổi. GV/Admin: `start` (mở điểm danh 60 giây), `stop`, `qr`, danh sách + sĩ số, điểm danh tay, `export` (file Excel) |
 | `AttendanceController` (SV) | `api/Attendance` | `checkin` (quét QR), `history` (lịch sử + tỉ lệ vắng) |
 
-Bảng dữ liệu: bảng Identity (`AspNetUsers`, `AspNetRoles`…), `Courses`, `Enrollments`, `Sessions`, `Attendances`.
+Bảng dữ liệu: bảng Identity (`AspNetUsers`, `AspNetRoles`…), `Courses`, `Enrollments`, `Sessions` (lịch học: ngày giờ, `StartedAt`, `ClosesAt`), `Attendances`.
 Bảng được tạo/cập nhật tự động khi API khởi động (`Database.Migrate()`), kèm tạo vai trò và tài khoản admin đầu tiên.
 
 ### 5.3. Thuật toán và cơ chế bảo mật
@@ -145,11 +148,12 @@ Bảng được tạo/cập nhật tự động khi API khởi động (`Databas
 | OTP | Mã 6 số theo thời gian (TOTP) của Identity, gửi về email; bước xác nhận phải gửi kèm mật khẩu nên không dò được mã chỉ với tên đăng nhập |
 | JWT | HMAC-SHA256, hạn 24 giờ, chứa id, tên, vai trò |
 | Google OAuth 2.0 | Backend kiểm tra ID token với Google (chữ ký, issuer, audience = Web Client ID) rồi mới cấp JWT riêng |
+| Cửa sổ điểm danh | GV bấm bắt đầu → server nhận điểm danh trong 60 giây (`ClosesAt`), hết giờ tự ngừng, danh sách đã lưu sẵn trong database |
 | QR động | Mã = HMAC-SHA256(secret của buổi, thời điểm / 15 giây); nhận mã của khung hiện tại và khung trước (sống 15–30 giây) |
 | Hàng rào GPS | Công thức Haversine tính khoảng cách SV – phòng học, so với bán kính GV đặt |
 | Khoá thiết bị | Mỗi mã thiết bị chỉ điểm danh cho 1 sinh viên trong 1 buổi |
 | Khuôn mặt | So khoảng cách Euclid giữa vector đã đăng ký và vector vừa chụp, ngưỡng 0,65 |
-| Cảnh báo cấm thi | Vắng (kể cả có phép) > 20% số buổi đã kết thúc |
+| Cảnh báo cấm thi | Vắng (kể cả có phép) > 20% số buổi đã điểm danh; buổi chưa học trong lịch không tính |
 | Thông báo lỗi | `ViIdentityErrorDescriber` dịch lỗi Identity sang tiếng Việt |
 
 ---

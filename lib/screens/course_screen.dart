@@ -26,12 +26,12 @@ class _CourseScreenState extends State<CourseScreen> {
 
   Future<void> _reloadSessions() async {
     setState(() { _sessions = _loadSessions(); });
-    await _sessions;
+    await _sessions.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   Future<void> _reloadStudents() async {
     setState(() { _students = _loadStudents(); });
-    await _students;
+    await _students.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   /// Chọn vị trí phòng học trên bản đồ (mặc định là GPS hiện tại của giảng viên) + bán kính điểm danh
@@ -56,36 +56,93 @@ class _CourseScreenState extends State<CourseScreen> {
     }
   }
 
-  Future<void> _editSession([Map? session, int count = 0]) async {
-    final title = TextEditingController(text: session?['title'] ?? 'Buổi ${count + 1}');
-    final lateMin = TextEditingController(text: '${session?['lateAfterMin'] ?? 15}');
+  bool get _isAdmin => Auth.role == 'Admin';
+
+  /// Admin tạo lịch: [số buổi] buổi, buổi đầu lúc [ngày giờ], lặp lại mỗi [n] ngày
+  Future<void> _createSchedule() async {
+    var first = DateTime.now().copyWith(hour: 7, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+    final count = TextEditingController(text: '15');
+    final every = TextEditingController(text: '7');
+    final lateMin = TextEditingController(text: '15');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
-        title: Text(session == null ? 'Tạo buổi học' : 'Sửa buổi học'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Field(title, 'Tên buổi'),
-          Field(lateMin, 'Sau bao nhiêu phút tính là đi muộn', keyboard: TextInputType.number),
-          if (session == null) const Text('Buổi học bắt đầu từ bây giờ và mở điểm danh ngay.'),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(session == null ? 'Tạo & mở QR' : 'Lưu')),
-        ],
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialog) => AlertDialog(
+          title: const Text('Tạo lịch học'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event),
+                title: const Text('Buổi đầu tiên'),
+                subtitle: Text(fmtSchedule(first.toUtc().toIso8601String())),
+                trailing: const Icon(Icons.edit_calendar),
+                onTap: () async {
+                  final picked = await pickDateTime(c, first);
+                  if (picked != null) setDialog(() => first = picked);
+                },
+              ),
+              Field(count, 'Số buổi', keyboard: TextInputType.number),
+              Field(every, 'Lặp lại mỗi (ngày) – 7 = mỗi tuần', keyboard: TextInputType.number),
+              Field(lateMin, 'Sau bao nhiêu phút tính đi muộn', keyboard: TextInputType.number),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Tạo lịch')),
+          ],
+        ),
       ),
     );
     if (ok != true || !mounted) return;
-    final body = {
-      'title': title.text.trim(),
+    final r = await guard(context, () => Api.post('courses/${_course['id']}/schedule', {
+      'firstStartAt': first.toUtc().toIso8601String(),
+      'count': int.tryParse(count.text) ?? 1,
+      'everyDays': int.tryParse(every.text) ?? 7,
       'lateAfterMin': int.tryParse(lateMin.text) ?? 15,
-      'isOpen': session?['isOpen'] ?? true,
-      'startAt': session?['startAt'],
-    };
-    final r = await guard(context,
-        () => session == null ? Api.post('courses/${_course['id']}/sessions', body) : Api.put('sessions/${session['id']}', body));
-    if (r == null || !mounted) return;
-    if (session == null) await _open(r['id']);
-    _reloadSessions();
+    }));
+    if (r != null) _reloadSessions();
+  }
+
+  /// Admin sửa tên / ngày giờ / phút tính muộn của 1 buổi
+  Future<void> _editSession(Map session) async {
+    final title = TextEditingController(text: session['title']);
+    final lateMin = TextEditingController(text: '${session['lateAfterMin']}');
+    var startAt = DateTime.parse(session['startAt']).toLocal();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialog) => AlertDialog(
+          title: const Text('Sửa buổi học'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Field(title, 'Tên buổi'),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.event),
+              title: const Text('Ngày giờ học'),
+              subtitle: Text(fmtSchedule(startAt.toUtc().toIso8601String())),
+              trailing: const Icon(Icons.edit_calendar),
+              onTap: () async {
+                final picked = await pickDateTime(c, startAt);
+                if (picked != null) setDialog(() => startAt = picked);
+              },
+            ),
+            Field(lateMin, 'Sau bao nhiêu phút tính đi muộn', keyboard: TextInputType.number),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Lưu')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final r = await guard(context, () => Api.put('sessions/${session['id']}', {
+      'title': title.text.trim(),
+      'startAt': startAt.toUtc().toIso8601String(),
+      'lateAfterMin': int.tryParse(lateMin.text) ?? 15,
+    }));
+    if (r != null) _reloadSessions();
   }
 
   Future<void> _open(int sessionId) async {
@@ -113,19 +170,18 @@ class _CourseScreenState extends State<CourseScreen> {
     ),
   );
 
+  /// Lịch các buổi học: Admin tạo / sửa / xoá; giảng viên chọn buổi để điểm danh
   Widget _sessionsTab() => AsyncView(
     future: _sessions,
     onRefresh: _reloadSessions,
     builder: (sessions) => Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _editSession(null, sessions.length),
-        icon: const Icon(Icons.qr_code_2),
-        label: const Text('Tạo buổi'),
-      ),
+      floatingActionButton: _isAdmin
+          ? FloatingActionButton.extended(onPressed: _createSchedule, icon: const Icon(Icons.edit_calendar), label: const Text('Tạo lịch học'))
+          : null,
       body: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 88), children: [
         if (_course['latitude'] == null)
           Card(
-            color: Theme.of(context).colorScheme.tertiaryContainer,
+            color: kCream,
             child: ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('Chưa đặt vị trí phòng học'),
@@ -133,17 +189,50 @@ class _CourseScreenState extends State<CourseScreen> {
               onTap: _setLocation,
             ),
           ),
-        if (sessions.isEmpty) const SizedBox(height: 300, child: EmptyView('Chưa có buổi học nào', icon: Icons.event_note)),
-        for (final s in sessions)
-          Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: s['isOpen'] ? Colors.green.shade100 : null,
-                child: Icon(s['isOpen'] ? Icons.qr_code_2 : Icons.lock_outline, color: s['isOpen'] ? Colors.green.shade800 : null),
-              ),
-              title: Text(s['title']),
-              subtitle: Text('${fmtDate(s['startAt'], withYear: true)} · Có mặt ${s['presentCount']}/${s['total']}'),
-              trailing: PopupMenuButton(
+        if (!_isAdmin && sessions.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text('Chọn buổi học để điểm danh'),
+          ),
+        if (sessions.isEmpty)
+          SizedBox(
+            height: 300,
+            child: EmptyView(_isAdmin ? 'Chưa có lịch học. Bấm "Tạo lịch học" để thêm các buổi.' : 'Admin chưa tạo lịch học cho lớp này',
+                icon: Icons.event_note),
+          ),
+        for (final s in sessions) _sessionCard(s),
+      ]),
+    ),
+  );
+
+  Widget _sessionCard(Map s) {
+    final open = s['isOpen'] == true;
+    final held = s['startedAt'] != null;
+    final (icon, color, statusText) = open
+        ? (Icons.qr_code_2, Colors.teal, 'Đang điểm danh…')
+        : held
+            ? (Icons.fact_check_outlined, Colors.green, 'Đã điểm danh: ${s['presentCount']}/${s['total']} SV')
+            : (Icons.event_outlined, Colors.blueGrey, 'Chưa điểm danh');
+    final today = isToday(s['startAt']);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: today ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: kGold, width: 2)) : null,
+      child: ListTile(
+        leading: IconBox(icon, color: color),
+        title: Row(children: [
+          Flexible(child: Text(s['title'], style: const TextStyle(fontWeight: FontWeight.w600))),
+          if (today)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: kCreamDeep, borderRadius: BorderRadius.circular(10)),
+              child: const Text('Hôm nay', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kInk)),
+            ),
+        ]),
+        subtitle: Text('${fmtSchedule(s['startAt'])}\n$statusText'),
+        isThreeLine: true,
+        trailing: _isAdmin
+            ? PopupMenuButton(
                 itemBuilder: (_) => [
                   PopupMenuItem(onTap: () => _editSession(s), child: const Text('Sửa')),
                   PopupMenuItem(
@@ -154,13 +243,12 @@ class _CourseScreenState extends State<CourseScreen> {
                     child: const Text('Xoá'),
                   ),
                 ],
-              ),
-              onTap: () => _open(s['id']),
-            ),
-          ),
-      ]),
-    ),
-  );
+              )
+            : const Icon(Icons.chevron_right),
+        onTap: () => _open(s['id']),
+      ),
+    );
+  }
 
   Widget _studentsTab() => AsyncView(
     future: _students,

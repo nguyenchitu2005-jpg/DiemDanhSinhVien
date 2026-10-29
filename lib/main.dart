@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api.dart';
 import 'screens/admin_screen.dart';
@@ -74,6 +75,9 @@ class App extends StatelessWidget {
     navigatorKey: navigatorKey,
     debugShowCheckedModeBanner: false,
     theme: _theme(),
+    locale: const Locale('vi'),
+    supportedLocales: const [Locale('vi'), Locale('en')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
     home: Auth.token == null ? const LoginScreen() : homeFor(Auth.role),
   );
 }

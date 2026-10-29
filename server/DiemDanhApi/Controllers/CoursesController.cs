@@ -24,6 +24,7 @@ public class CoursesController(ApplicationDbContext db, UserManager<User> userMa
     public async Task<IActionResult> GetAll()
     {
         var uid = Uid;
+        var now = DateTime.UtcNow;
         var isStudent = User.IsInRole(Roles.Student);
         var query = db.Courses.AsQueryable();
         if (User.IsInRole(Roles.Teacher)) query = query.Where(c => c.TeacherId == uid);
@@ -43,7 +44,7 @@ public class CoursesController(ApplicationDbContext db, UserManager<User> userMa
             JoinCode = isStudent ? null : c.JoinCode,
             StudentCount = db.Enrollments.Count(e => e.CourseId == c.Id),
             SessionCount = db.Sessions.Count(s => s.CourseId == c.Id),
-            OpenSessionCount = db.Sessions.Count(s => s.CourseId == c.Id && s.IsOpen),
+            OpenSessionCount = db.Sessions.Count(s => s.CourseId == c.Id && s.ClosesAt > now),
         }).ToListAsync());
     }
 
@@ -110,13 +111,13 @@ public class CoursesController(ApplicationDbContext db, UserManager<User> userMa
     [Authorize(Roles = Roles.Student)]
     public Task<IActionResult> Leave(int id) => RemoveStudent(id, Uid);
 
-    /// Danh sách sinh viên của lớp kèm số buổi có mặt (để giảng viên thấy ai có nguy cơ cấm thi)
+    /// Danh sách sinh viên của lớp kèm số buổi có mặt / số buổi đã học (để giảng viên thấy ai có nguy cơ cấm thi)
     [HttpGet("{id}/students")]
     [Authorize(Roles = Roles.Admin + "," + Roles.Teacher)]
     public async Task<IActionResult> Students(int id)
     {
         if (await ManagedCourse(db, id) == null) return NotFound(Msg("Không tìm thấy lớp"));
-        var sessionCount = await db.Sessions.CountAsync(s => s.CourseId == id);
+        var sessionCount = await db.Sessions.CountAsync(s => s.CourseId == id && s.StartedAt != null); // buổi chưa học không tính
         var students = await db.Enrollments.Where(e => e.CourseId == id).OrderBy(e => e.Student!.FullName).Select(e => new
         {
             e.StudentId,

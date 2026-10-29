@@ -4,6 +4,9 @@ using System.Text;
 /// Luật điểm danh dùng chung (thuần tính toán, có test trong DiemDanhApi.Tests)
 public static class AttendanceRules
 {
+    /// Mỗi lần giảng viên bấm "Bắt đầu điểm danh", sinh viên có chừng này giây để quét
+    public const int CheckinWindowSeconds = 60;
+
     /// Mã QR đổi sau mỗi chừng này giây: ảnh QR chụp gửi cho bạn sẽ hết hạn rất nhanh
     public const int QrStepSeconds = 15;
 

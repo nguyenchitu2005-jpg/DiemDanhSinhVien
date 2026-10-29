@@ -101,7 +101,8 @@ const attendanceLabels = {
   'Late': ('Đi muộn', Colors.orange),
   'Excused': ('Có phép', Colors.blue),
   'Absent': ('Vắng', Colors.red),
-  'Open': ('Đang mở', Colors.grey),
+  'Open': ('Đang điểm danh', Colors.teal),
+  'Upcoming': ('Chưa học', Colors.blueGrey), // buổi trong lịch chưa tới / chưa điểm danh, không tính vắng
 };
 
 class StatusChip extends StatelessWidget {
@@ -258,6 +259,36 @@ class IconBox extends StatelessWidget {
       child: Icon(icon, color: c),
     );
   }
+}
+
+const _weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+/// Ngày giờ của lịch học: "T5 29/10/2026 · 07:00"
+String fmtSchedule(String iso) {
+  final d = DateTime.parse(iso).toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${_weekdays[d.weekday - 1]} ${two(d.day)}/${two(d.month)}/${d.year} · ${two(d.hour)}:${two(d.minute)}';
+}
+
+bool isToday(String iso) {
+  final d = DateTime.parse(iso).toLocal();
+  final now = DateTime.now();
+  return d.year == now.year && d.month == now.month && d.day == now.day;
+}
+
+/// Chọn ngày + giờ (giờ máy); null nếu huỷ
+Future<DateTime?> pickDateTime(BuildContext context, DateTime initial) async {
+  final date = await showDatePicker(
+    context: context,
+    initialDate: initial,
+    firstDate: DateTime(2020),
+    lastDate: DateTime(2100),
+    helpText: 'Chọn ngày học',
+  );
+  if (date == null || !context.mounted) return null;
+  final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(initial), helpText: 'Chọn giờ bắt đầu');
+  if (time == null) return null;
+  return DateTime(date.year, date.month, date.day, time.hour, time.minute);
 }
 
 /// Ngày giờ UTC từ API → giờ máy, dạng 29/10 14:05

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -79,7 +80,17 @@ class Api {
   static Future<dynamic> put(String path, [Object? body]) => _send('PUT', path, body);
   static Future<dynamic> delete(String path) => _send('DELETE', path);
 
-  static Future<dynamic> _send(String method, String path, [Object? body]) async {
+  /// Tải file (vd Excel) dạng byte
+  static Future<Uint8List> download(String path) async {
+    final res = await _raw('GET', path);
+    if (res.statusCode >= 200 && res.statusCode < 300) return res.bodyBytes;
+    _check(res); // ném ApiException với thông báo của server
+    throw ApiException('Lỗi máy chủ (${res.statusCode})');
+  }
+
+  static Future<dynamic> _send(String method, String path, [Object? body]) async => _check(await _raw(method, path, body));
+
+  static Future<http.Response> _raw(String method, String path, [Object? body]) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'))
       ..headers['Content-Type'] = 'application/json'
       ..headers['Accept'] = 'application/json';
@@ -87,8 +98,7 @@ class Api {
     if (body != null) request.body = jsonEncode(body);
     try {
       // Host miễn phí ngủ khi không ai dùng, lần gọi đầu có thể mất vài chục giây
-      final response = await http.Response.fromStream(await request.send().timeout(const Duration(seconds: 60)));
-      return _check(response);
+      return await http.Response.fromStream(await request.send().timeout(const Duration(seconds: 60)));
     } on SocketException {
       throw ApiException('Không kết nối được máy chủ, kiểm tra mạng');
     } on TimeoutException {

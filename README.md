@@ -52,15 +52,18 @@ flutter run            # chọn thiết bị Android, KHÔNG chọn Chrome (web)
 
 ### Admin – Trang quản trị
 - **Tài khoản**: thêm / sửa / xoá, đổi vai trò (Quản trị, Giảng viên, Sinh viên), lọc theo vai trò.
-- **Lớp học**: thêm / sửa / xoá, gán giảng viên, xem mã vào lớp; mở lớp để quản lý như giảng viên.
+- **Lớp học**: thêm / sửa / xoá, gán giảng viên, xem mã vào lớp.
+- **Lịch học**: mở lớp → **Tạo lịch học** (ngày giờ buổi đầu, số buổi, lặp mỗi n ngày) → sinh sẵn "Buổi 1…n"; sửa ngày giờ / xoá từng buổi.
 
 ### Giảng viên – Dashboard lớp của tôi
 - Thống kê số lớp, số buổi, số buổi đang mở điểm danh.
 - **Đặt vị trí phòng học trên bản đồ** (chạm để đặt ghim, kéo thanh trượt chỉnh bán kính 20–500 m, xem đường phố hoặc vệ tinh).
-- **Buổi học**: tạo / sửa / xoá, mở / đóng điểm danh.
+- **Chọn buổi học** trong lịch (có nhãn *Hôm nay*; trạng thái Chưa điểm danh / Đang điểm danh / Đã điểm danh x/y).
 - **Màn buổi học**:
-  - **Mã QR** tự đổi mỗi 15 giây, có vòng đếm ngược và số SV đã điểm danh.
-  - **Danh sách** cập nhật mỗi 5 giây; bấm vào SV để điểm danh tay (Có mặt / Đi muộn / Có phép / Vắng).
+  - **Bắt đầu điểm danh (1 phút)**: hiện mã QR (tự đổi mỗi 15 giây) và đồng hồ đếm 60 giây; hết giờ **tự dừng và lưu danh sách** kèm sĩ số
+    (có mặt / muộn / có phép / vắng). Có thể dừng sớm hoặc **điểm danh thêm 1 phút**.
+  - **Danh sách**: mỗi SV có hàng nút **Có mặt / Đi muộn / Có phép / Vắng** để chọn cho bạn chưa quét được QR, lưu ngay khi bấm.
+  - **Xuất Excel**: file `.xlsx` (môn, buổi, ngày, giảng viên, sĩ số, từng SV + trạng thái, giờ, khoảng cách, hình thức) → lưu Files / Drive, gửi Zalo, email.
   - **Bản đồ** vị trí từng SV (màu theo trạng thái, khoảng cách tới phòng, nét nối về phòng), chú thích số SV trong / ngoài vùng.
 - **Sinh viên của lớp**: tỉ lệ có mặt từng SV, đánh dấu **nguy cơ cấm thi**, xoá SV khỏi lớp, chép mã vào lớp.
 
@@ -68,7 +71,7 @@ flutter run            # chọn thiết bị Android, KHÔNG chọn Chrome (web)
 - Thống kê **Lớp / Chuyên cần / Buổi vắng**; bấm vào từng ô để xem chi tiết.
 - **Vào lớp** bằng mã giảng viên đưa.
 - **Quét QR điểm danh**: vân tay → lấy GPS → quét mã trên màn hình giảng viên.
-- Bấm vào một lớp: tỉ lệ chuyên cần, số buổi có mặt / muộn / có phép / vắng, **từng buổi học** và giờ điểm danh; rời lớp.
+- Bấm vào một lớp: tỉ lệ chuyên cần, số buổi có mặt / muộn / có phép / vắng, **lịch từng buổi** (buổi chưa học hiện *Chưa học*, không tính vắng) và giờ điểm danh; rời lớp.
 - **Cảnh báo nguy cơ cấm thi** khi vắng quá 20% số buổi.
 
 ---
@@ -80,7 +83,7 @@ flutter run            # chọn thiết bị Android, KHÔNG chọn Chrome (web)
 | 1. Đăng ký qua email / bên thứ 3 (backend OAuth 2.0) | `Auth/register` tạo tài khoản SV và gửi **OTP về email** để xác nhận. Nút **Tiếp tục với Google**: app lấy ID token, **backend kiểm tra token với Google** (chữ ký, issuer, audience) bằng `Google.Apis.Auth` rồi tạo / liên kết tài khoản và cấp JWT |
 | 2. Đăng nhập user + pass + OTP (SMS, Email) | `Auth/login` kiểm tra mật khẩu → gửi **Email OTP** 6 số (qua Brevo) → `Auth/verify-otp` trả JWT. Sai mật khẩu / OTP 5 lần khoá 5 phút. Đề cho chọn SMS hoặc Email; nhóm dùng Email vì SMS cần dịch vụ trả phí |
 | 3. Phân quyền | Vai trò nằm trong JWT: **Admin** → Trang quản trị; **Giảng viên** (nhân viên) → Dashboard lớp của mình; **Sinh viên** → Trang điểm danh. API chặn bằng `[Authorize(Roles = ...)]` |
-| 4. CRUD | Tài khoản, lớp học (Admin); buổi học, điểm danh tay, sinh viên trong lớp, vị trí lớp (Giảng viên); vào / rời lớp, hồ sơ, khuôn mặt (Sinh viên) |
+| 4. CRUD | Tài khoản, lớp học, lịch học / buổi học (Admin); điểm danh tay, sinh viên trong lớp, vị trí lớp (Giảng viên); vào / rời lớp, hồ sơ, khuôn mặt (Sinh viên). Xuất Excel danh sách điểm danh |
 | 5a. Đăng nhập khuôn mặt | Đăng ký 5 ảnh, kiểm tra **nháy mắt** chống ảnh in → vector FaceNet 512 chiều lưu trên server; đăng nhập so khoảng cách ≤ 0,65 |
 | 5b. Chia sẻ vị trí | SV gửi GPS khi điểm danh; server tính khoảng cách tới phòng (Haversine). GV xem **bản đồ** vị trí SV, chọn vị trí phòng trên bản đồ |
 | 5e. QR + vân tay | GV chiếu **QR động**, SV quét bằng camera; trước khi quét phải xác thực **vân tay** |
@@ -105,14 +108,15 @@ Ngoài ra: **cảnh báo nguy cơ cấm thi**. SV vắng quá 20% số buổi đ
 
 ## 5. Kịch bản demo
 
-1. **Admin** đăng nhập (OTP email) → tạo tài khoản giảng viên → tạo lớp, gán giảng viên.
-2. **Giảng viên** đăng nhập → mở lớp → bấm biểu tượng vị trí trên thanh tiêu đề, chọn vị trí phòng trên bản đồ → **Tạo buổi**. QR hiện ra, tự đổi mỗi 15 giây.
-3. **Sinh viên** đăng ký bằng email (OTP) → **Vào lớp** bằng mã lớp → **Quét QR điểm danh**: vân tay → GPS → quét.
-4. Giảng viên xem tab **Danh sách** và **Bản đồ** (bật chế độ vệ tinh); sửa tay trạng thái Có phép / Vắng.
-5. Thử gian lận: chụp QR gửi máy khác sau 30 giây; đứng xa phòng học; dùng 1 máy điểm danh cho 2 SV → cả 3 đều bị từ chối.
-6. Đóng buổi → SV chưa điểm danh bị tính vắng → SV thấy **cảnh báo cấm thi**, bấm ô **Buổi vắng** để xem chi tiết.
-7. Hồ sơ → **Đăng ký khuôn mặt** → đăng xuất → **Đăng nhập bằng khuôn mặt**.
-8. Đăng nhập **Google** bằng Gmail đã thêm vào Test users (mục 7.3).
+1. **Admin** đăng nhập (OTP email) → tạo tài khoản giảng viên → tạo lớp, gán giảng viên → mở lớp → **Tạo lịch học** (vd 15 buổi, mỗi tuần).
+2. **Sinh viên** đăng ký bằng email (OTP) → **Vào lớp** bằng mã lớp.
+3. **Giảng viên** đăng nhập → mở lớp → (lần đầu) chọn vị trí phòng trên bản đồ → chọn buổi *Hôm nay* → **Bắt đầu điểm danh (1 phút)**.
+4. Sinh viên **Quét QR điểm danh**: vân tay → GPS → quét. Hết 60 giây, điểm danh tự dừng và hiện sĩ số đã lưu.
+5. Giảng viên vào tab **Danh sách** chọn Có mặt / Muộn / Có phép / Vắng cho bạn chưa quét được → **Xuất Excel** → lưu hoặc gửi file.
+6. Xem tab **Bản đồ** (bật chế độ vệ tinh). Thử gian lận: chụp QR gửi máy khác sau 30 giây; đứng xa phòng học; dùng 1 máy điểm danh cho 2 SV → đều bị từ chối.
+7. SV vắng nhiều buổi → thấy **cảnh báo cấm thi**, bấm ô **Buổi vắng** để xem chi tiết.
+8. Hồ sơ → **Đăng ký khuôn mặt** → đăng xuất → **Đăng nhập bằng khuôn mặt**.
+9. Đăng nhập **Google** bằng Gmail đã thêm vào Test users (mục 7.3).
 
 ---
 
@@ -218,6 +222,7 @@ dotnet run --launch-profile http          # http://localhost:5080/swagger
 | Google báo `JWT audience incorrect` | `Google__WebClientId` trên Render khác Client ID trong `.env` |
 | Google không cho đăng nhập | Gmail chưa có trong **Test users**, hoặc thiếu Client ID Android với SHA-1 của máy build |
 | "Tài khoản tạm khoá…" | Sai mật khẩu / OTP / khuôn mặt 5 lần, đợi 5 phút |
+| "Giảng viên chưa mở điểm danh buổi này" / "Đã hết thời gian điểm danh" | GV bấm *Bắt đầu điểm danh* hoặc *Điểm danh thêm 1 phút*; hoặc điểm danh tay trong tab Danh sách |
 | "Bạn đang cách phòng học … m" | Đứng ngoài bán kính; GV có thể tăng bán kính hoặc đặt lại vị trí phòng |
 | "Máy này đã điểm danh cho một sinh viên khác" | Đúng thiết kế chống điểm danh hộ (1 máy / 1 SV / 1 buổi) |
 | Bản đồ không hiện nền | Mạng chặn máy chủ bản đồ; app dùng Esri (không dùng OpenStreetMap vì hay bị chặn DNS) |

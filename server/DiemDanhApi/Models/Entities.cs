@@ -49,7 +49,7 @@ public class Enrollment
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 }
 
-/// Buổi học
+/// Buổi học (Admin tạo theo lịch, giảng viên mở điểm danh từng buổi)
 public class ClassSession
 {
     public int Id { get; set; }
@@ -59,7 +59,10 @@ public class ClassSession
     public string Title { get; set; } = "";
     public DateTime StartAt { get; set; } = DateTime.UtcNow;
     public int LateAfterMin { get; set; } = 15; // điểm danh sau StartAt + LateAfterMin phút là "Đi muộn"
-    public bool IsOpen { get; set; } = true;
+    // Lần đầu giảng viên bấm "Bắt đầu điểm danh"; null = buổi chưa học, không tính vắng
+    public DateTime? StartedAt { get; set; }
+    // Nhận điểm danh tới thời điểm này (mỗi lần bắt đầu mở AttendanceRules.CheckinWindowSeconds giây)
+    public DateTime? ClosesAt { get; set; }
     [MaxLength(64)]
     public string QrSecret { get; set; } = "";
 }

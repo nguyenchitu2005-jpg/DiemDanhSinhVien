@@ -8,7 +8,8 @@ const _statusIcons = {
   'Late': Icons.schedule,
   'Excused': Icons.assignment_turned_in,
   'Absent': Icons.cancel,
-  'Open': Icons.hourglass_top,
+  'Open': Icons.qr_code_scanner,
+  'Upcoming': Icons.event_outlined,
 };
 
 /// Một lớp của sinh viên: tỉ lệ chuyên cần, số buổi theo trạng thái và từng buổi học (có mặt / muộn / có phép / vắng).
@@ -67,7 +68,8 @@ class StudentCourseScreen extends StatelessWidget {
                     Text(course['name'], style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     Text('${course['code']} · Phòng ${course['room'] ?? '-'}', style: TextStyle(color: scheme.outline)),
                     const SizedBox(height: 4),
-                    Text(total == 0 ? 'Chưa có buổi nào kết thúc' : 'Đã học $total buổi · vắng ${course['absent']} buổi'),
+                    Text(total == 0 ? 'Chưa có buổi nào được điểm danh' : 'Đã học $total buổi · vắng ${course['absent']} buổi'),
+                    if (count('Upcoming') > 0) Text('Còn ${count('Upcoming')} buổi theo lịch', style: TextStyle(color: scheme.outline)),
                   ]),
                 ),
               ]),
@@ -103,7 +105,7 @@ class StudentCourseScreen extends StatelessWidget {
         if (sessions.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 32),
-            child: Text('Giảng viên chưa tạo buổi học nào', textAlign: TextAlign.center, style: TextStyle(color: scheme.outline)),
+            child: Text('Lớp chưa có lịch học', textAlign: TextAlign.center, style: TextStyle(color: scheme.outline)),
           ),
         for (final s in sessions)
           Card(
@@ -114,7 +116,7 @@ class StudentCourseScreen extends StatelessWidget {
               subtitle: Text([
                 fmtDate(s['startAt'], withYear: true),
                 if (s['checkedAt'] != null) 'điểm danh lúc ${fmtDate(s['checkedAt'])}',
-                if (s['status'] == 'Open') 'đang mở – hãy quét QR',
+                if (s['status'] == 'Open') 'đang điểm danh – hãy quét QR ngay',
               ].join(' · ')),
               trailing: StatusChip(s['status']),
             ),

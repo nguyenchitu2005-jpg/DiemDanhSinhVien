@@ -58,7 +58,7 @@ class _UsersTabState extends State<_UsersTab> with AutomaticKeepAliveClientMixin
     setState(() {
       _users = _load();
     }); // không dùng "=>": trả về Future thì setState báo lỗi và không vẽ lại
-    await _users;
+    await _users.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   Future<void> _edit([Map? user]) async {
@@ -252,7 +252,7 @@ class _CoursesTabState extends State<_CoursesTab> with AutomaticKeepAliveClientM
     setState(() {
       _courses = Api.get('Courses');
     });
-    await _courses;
+    await _courses.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   Future<void> _edit([Map? course]) async {

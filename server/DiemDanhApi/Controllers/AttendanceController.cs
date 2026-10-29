@@ -19,8 +19,9 @@ public class AttendanceController(ApplicationDbContext db) : AppController
         var (sessionId, token) = qr;
         var session = await db.Sessions.Include(s => s.Course).FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session == null) return NotFound(Msg("Không tìm thấy buổi học"));
-        if (!session.IsOpen) return BadRequest(Msg("Buổi học đã đóng điểm danh"));
         var now = DateTimeOffset.UtcNow;
+        if (!(session.ClosesAt > now.UtcDateTime))
+            return BadRequest(Msg(session.StartedAt == null ? "Giảng viên chưa mở điểm danh buổi này" : "Đã hết thời gian điểm danh buổi này"));
         if (!AttendanceRules.IsValidQr(session.QrSecret, token, now))
             return BadRequest(Msg("Mã QR đã hết hạn, hãy quét mã mới trên màn hình giảng viên"));
 
@@ -73,15 +74,17 @@ public class AttendanceController(ApplicationDbContext db) : AppController
         });
     }
 
-    /// Lịch sử từng lớp + tỉ lệ vắng; vắng quá 20% số buổi đã học thì cảnh báo nguy cơ cấm thi
+    /// Lịch sử từng lớp + tỉ lệ vắng; vắng quá 20% số buổi đã học thì cảnh báo nguy cơ cấm thi.
+    /// Trạng thái buổi: Present / Late / Excused / Absent, Open (đang điểm danh), Upcoming (chưa học – không tính vắng)
     [HttpGet("history")]
     public async Task<IActionResult> History()
     {
         var uid = Uid;
         var courses = await db.Enrollments.Where(e => e.StudentId == uid).Select(e => e.Course!).OrderBy(c => c.Code).ToListAsync();
         var courseIds = courses.Select(c => c.Id).ToList();
-        var sessions = await db.Sessions.Where(s => courseIds.Contains(s.CourseId)).OrderByDescending(s => s.StartAt)
-            .Select(s => new { s.Id, s.CourseId, s.Title, s.StartAt, s.IsOpen }).ToListAsync();
+        var now = DateTime.UtcNow;
+        var sessions = await db.Sessions.Where(s => courseIds.Contains(s.CourseId)).OrderBy(s => s.StartAt)
+            .Select(s => new { s.Id, s.CourseId, s.Title, s.StartAt, Held = s.StartedAt != null, IsOpen = s.ClosesAt > now }).ToListAsync();
         var mine = await db.Attendances.Where(a => a.StudentId == uid)
             .Select(a => new { a.SessionId, a.Status, a.CheckedAt }).ToDictionaryAsync(a => a.SessionId);
 
@@ -90,10 +93,11 @@ public class AttendanceController(ApplicationDbContext db) : AppController
             var list = sessions.Where(s => s.CourseId == c.Id).Select(s =>
             {
                 var a = mine.GetValueOrDefault(s.Id);
-                // Buổi còn mở mà chưa điểm danh thì chưa tính vắng
-                return new { s.Id, s.Title, s.StartAt, s.IsOpen, Status = a?.Status ?? (s.IsOpen ? "Open" : "Absent"), a?.CheckedAt };
+                // Chưa điểm danh: buổi đang mở hoặc chưa học thì chưa tính vắng
+                var status = a?.Status ?? (s.IsOpen ? "Open" : s.Held ? "Absent" : "Upcoming");
+                return new { s.Id, s.Title, s.StartAt, s.IsOpen, Status = status, a?.CheckedAt };
             }).ToList();
-            var counted = list.Count(x => x.Status != "Open");
+            var counted = list.Count(x => x.Status is not ("Open" or "Upcoming"));
             var absent = list.Count(x => x.Status is "Absent" or AttendanceStatus.Excused);
             var rate = counted == 0 ? 0 : (double)absent / counted;
             return new

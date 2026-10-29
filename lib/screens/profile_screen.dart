@@ -32,7 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _reload() async {
     setState(() { _me = Api.get('Auth/me'); });
-    await _me;
+    await _me.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   Future<void> _edit(Map me) async {

@@ -19,7 +19,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _reload() async {
     setState(() { _history = Api.get('Attendance/history'); });
-    await _history;
+    await _history.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   Future<void> _join() async {

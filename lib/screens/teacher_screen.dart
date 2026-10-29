@@ -18,7 +18,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
 
   Future<void> _reload() async {
     setState(() { _courses = Api.get('Courses'); });
-    await _courses;
+    await _courses.catchError((_) => null); // lỗi đã hiện trong AsyncView
   }
 
   @override
@@ -37,7 +37,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
             stats: [
               Stat(Icons.class_outlined, '${courses.length}', 'Lớp'),
               Stat(Icons.event_note_outlined, '${sum('sessionCount')}', 'Buổi học'),
-              Stat(Icons.qr_code_2, '${sum('openSessionCount')}', 'Đang mở'),
+              Stat(Icons.qr_code_2, '${sum('openSessionCount')}', 'Đang điểm danh'),
             ],
           );
         },

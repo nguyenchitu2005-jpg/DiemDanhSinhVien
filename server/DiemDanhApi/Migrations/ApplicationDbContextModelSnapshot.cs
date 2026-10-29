@@ -80,11 +80,11 @@ namespace DiemDanhApi.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ClosesAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("CourseId")
                         .HasColumnType("integer");
-
-                    b.Property<bool>("IsOpen")
-                        .HasColumnType("boolean");
 
                     b.Property<int>("LateAfterMin")
                         .HasColumnType("integer");
@@ -95,6 +95,9 @@ namespace DiemDanhApi.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("StartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Title")
