@@ -50,50 +50,74 @@ class _StudentScreenState extends State<StudentScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Điểm danh'),
-      actions: [
-        IconButton(tooltip: 'Vào lớp', icon: const Icon(Icons.group_add_outlined), onPressed: _join),
-        profileAction(context),
-      ],
-    ),
     floatingActionButton: FloatingActionButton.extended(
       onPressed: _scan,
       icon: const Icon(Icons.qr_code_scanner),
       label: const Text('Quét QR điểm danh'),
     ),
-    body: AsyncView(
-      future: _history,
-      onRefresh: _reload,
-      builder: (courses) {
-        final warnings = courses.where((c) => c['warning'] == true).toList();
-        return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
-          Text('Xin chào, ${Auth.fullName}', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          if (warnings.isNotEmpty)
-            Card(
-              color: Theme.of(context).colorScheme.errorContainer,
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber_rounded, size: 32),
-                title: const Text('Nguy cơ cấm thi', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Bạn vắng quá 20% số buổi ở: ${warnings.map((c) => c['code']).join(', ')}'),
+    body: Column(children: [
+      FutureBuilder(
+        future: _history,
+        builder: (_, snap) {
+          final List courses = snap.data ?? [];
+          final total = courses.fold<int>(0, (s, c) => s + (c['totalSessions'] as int));
+          final absent = courses.fold<int>(0, (s, c) => s + (c['absent'] as int));
+          return HomeHeader(
+            subtitle: 'Sinh viên',
+            title: Auth.fullName,
+            actions: [
+              IconButton(
+                tooltip: 'Vào lớp',
+                onPressed: _join,
+                icon: const Icon(Icons.group_add_outlined, color: kInk),
               ),
-            ),
-          if (courses.isEmpty)
-            SizedBox(
-              height: 360,
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.school_outlined, size: 56),
+              profileAction(context),
+            ],
+            stats: [
+              (Icons.class_outlined, '${courses.length}', 'Lớp'),
+              (Icons.verified_outlined, total == 0 ? '-' : '${((total - absent) * 100 / total).round()}%', 'Chuyên cần'),
+              (Icons.event_busy_outlined, '$absent', 'Buổi vắng'),
+            ],
+          );
+        },
+      ),
+      Expanded(
+        child: AsyncView(
+          future: _history,
+          onRefresh: _reload,
+          builder: (courses) {
+            if (courses.isEmpty) {
+              return ListView(children: [
+                const SizedBox(height: 100),
+                Icon(Icons.school_outlined, size: 56, color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 12),
-                const Text('Bạn chưa vào lớp nào'),
+                const Text('Bạn chưa vào lớp nào', textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                FilledButton.tonalIcon(onPressed: _join, icon: const Icon(Icons.group_add), label: const Text('Nhập mã lớp')),
-              ]),
-            ),
-          for (final c in courses) _CourseCard(course: c, onLeft: _reload),
-        ]);
-      },
-    ),
+                Center(
+                  child: FilledButton.tonalIcon(onPressed: _join, icon: const Icon(Icons.group_add), label: const Text('Nhập mã lớp')),
+                ),
+              ]);
+            }
+            final warnings = courses.where((c) => c['warning'] == true).toList();
+            return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), children: [
+              if (warnings.isNotEmpty)
+                Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    leading: const Icon(Icons.warning_amber_rounded, size: 32),
+                    title: const Text('Nguy cơ cấm thi', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('Bạn vắng quá 20% số buổi ở: ${warnings.map((c) => c['code']).join(', ')}'),
+                  ),
+                ),
+              Text('Lớp của tôi', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              for (final c in courses) _CourseCard(course: c, onLeft: _reload),
+            ]);
+          },
+        ),
+      ),
+    ]),
   );
 }
 
@@ -113,22 +137,37 @@ class _CourseCard extends StatelessWidget {
     final color = warning ? scheme.error : (rate >= 0.15 ? Colors.orange : Colors.green);
     return Card(
       clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         shape: const Border(),
-        title: Text('${course['code']} · ${course['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SizedBox(height: 6),
-          LinearProgressIndicator(value: total == 0 ? 0 : 1 - rate, color: color, borderRadius: BorderRadius.circular(4), minHeight: 6),
-          const SizedBox(height: 4),
-          Text(total == 0
-              ? 'Chưa có buổi nào'
-              : 'Vắng $absent/$total buổi (${(rate * 100).toStringAsFixed(0)}%)${warning ? ' – nguy cơ cấm thi' : ''}',
-              style: TextStyle(color: warning ? scheme.error : null)),
-        ]),
+        tilePadding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+        // Vòng tròn % chuyên cần của lớp
+        leading: SizedBox(
+          width: 48,
+          height: 48,
+          child: Stack(alignment: Alignment.center, children: [
+            CircularProgressIndicator(
+              value: total == 0 ? 0 : 1 - rate,
+              strokeWidth: 5,
+              color: color,
+              backgroundColor: color.withValues(alpha: 0.15),
+            ),
+            Text(total == 0 ? '-' : '${((1 - rate) * 100).round()}%',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ]),
+        ),
+        title: Text(course['name'], style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          total == 0
+              ? '${course['code']} · Chưa có buổi nào'
+              : '${course['code']} · Vắng $absent/$total buổi${warning ? ' – nguy cơ cấm thi' : ''}',
+          style: TextStyle(color: warning ? scheme.error : scheme.outline),
+        ),
         children: [
           for (final s in sessions)
             ListTile(
               dense: true,
+              leading: Icon(Icons.event_outlined, color: scheme.outline),
               title: Text(s['title']),
               subtitle: Text(fmtDate(s['startAt'], withYear: true)),
               trailing: StatusChip(s['status']),

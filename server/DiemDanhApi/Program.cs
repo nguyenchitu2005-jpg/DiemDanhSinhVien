@@ -21,7 +21,8 @@ builder.Services.AddIdentity<User, IdentityRole>(o =>
         o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddErrorDescriber<ViIdentityErrorDescriber>();
 
 var jwtSettings = builder.Configuration.GetSection("JWTKey");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Secret"]!);

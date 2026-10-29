@@ -6,6 +6,7 @@ import 'screens/admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/student_screen.dart';
 import 'screens/teacher_screen.dart';
+import 'widgets.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -30,15 +31,18 @@ Widget homeFor(String role) => switch (role) {
 class App extends StatelessWidget {
   const App({super.key});
 
-  static ThemeData _theme(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF3949AB), brightness: brightness);
+  /// Tông vàng kem + trắng: nền trắng, thẻ màu kem nhạt, nút vàng đậm (màu gốc kGold)
+  static ThemeData _theme() {
+    final scheme = ColorScheme.fromSeed(seedColor: kGold).copyWith(surface: Colors.white);
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
+      scaffoldBackgroundColor: Colors.white,
+      appBarTheme: const AppBarTheme(backgroundColor: Colors.white, surfaceTintColor: Colors.transparent, foregroundColor: kInk),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        fillColor: kCream.withValues(alpha: 0.6),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -52,10 +56,14 @@ class App extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: kCreamDeep, foregroundColor: kInk),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        color: const Color(0xFFFFFBF1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: kCreamDeep.withValues(alpha: 0.7)),
+        ),
       ),
     );
   }
@@ -65,8 +73,7 @@ class App extends StatelessWidget {
     title: 'Điểm danh SV',
     navigatorKey: navigatorKey,
     debugShowCheckedModeBanner: false,
-    theme: _theme(Brightness.light),
-    darkTheme: _theme(Brightness.dark),
+    theme: _theme(),
     home: Auth.token == null ? const LoginScreen() : homeFor(Auth.role),
   );
 }

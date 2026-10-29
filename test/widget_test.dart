@@ -33,4 +33,13 @@ void main() {
     expect(fmtDate('2026-10-29T07:05:00Z'), '${local.day.toString().padLeft(2, '0')}/10 ${local.hour.toString().padLeft(2, '0')}:05');
     expect(fmtDate(null), '');
   });
+
+  test('strongPassword theo luật mật khẩu của server', () {
+    expect(strongPassword('Abc@12'), isNull);
+    expect(strongPassword('abc@12'), 'Cần ít nhất 1 chữ in hoa');
+    expect(strongPassword('ABC@12'), 'Cần ít nhất 1 chữ thường');
+    expect(strongPassword('Abcd@x'), 'Cần ít nhất 1 chữ số');
+    expect(strongPassword('Abc123'), 'Cần ít nhất 1 ký tự đặc biệt (vd @ # !)');
+    expect(strongPassword('A@1b'), 'Tối thiểu 6 ký tự');
+  });
 }

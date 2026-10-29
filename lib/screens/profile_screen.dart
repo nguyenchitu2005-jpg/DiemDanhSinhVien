@@ -9,9 +9,12 @@ import 'login_screen.dart';
 /// Nút mở Hồ sơ trên AppBar của mọi trang
 Widget profileAction(BuildContext context) => IconButton(
   tooltip: 'Hồ sơ',
+  // nền trắng để nổi trên đầu trang màu gradient
   icon: CircleAvatar(
-    radius: 16,
-    child: Text(Auth.fullName.isEmpty ? '?' : Auth.fullName.trim().split(' ').last[0].toUpperCase()),
+    radius: 18,
+    backgroundColor: Colors.white,
+    child: Text(initials(Auth.fullName),
+        style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
   ),
   onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
 );
@@ -110,19 +113,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       future: _me,
       onRefresh: _reload,
       builder: (me) {
-        final scheme = Theme.of(context).colorScheme;
         return ListView(padding: const EdgeInsets.all(16), children: [
-          Center(
-            child: CircleAvatar(
-              radius: 44,
-              backgroundColor: scheme.primaryContainer,
-              child: Text(me['fullName'].toString().trim().split(' ').last[0].toUpperCase(),
-                  style: TextStyle(fontSize: 36, color: scheme.onPrimaryContainer)),
-            ),
-          ),
+          Center(child: Avatar(me['fullName'], radius: 44, color: roleColors[me['role']])),
           const SizedBox(height: 12),
           Text(me['fullName'], textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
-          Center(child: Chip(label: Text(roleLabels[me['role']] ?? me['role'] ?? ''))),
+          const SizedBox(height: 4),
+          Center(child: RoleChip(me['role'])),
+          const SizedBox(height: 8),
           Card(
             child: Column(children: [
               ListTile(leading: const Icon(Icons.person_outline), title: const Text('Tên đăng nhập'), subtitle: Text(me['userName'])),

@@ -14,10 +14,10 @@ using Microsoft.IdentityModel.Tokens;
 public class AuthController(UserManager<User> userManager, IConfiguration configuration, OtpSender otp) : AppController
 {
     public record RegisterModel(
-        [Required] string UserName,
-        [Required, EmailAddress] string Email,
-        [Required, MinLength(6)] string Password,
-        [Required] string FullName,
+        [Required(ErrorMessage = "Cần nhập tên đăng nhập")] string UserName,
+        [Required(ErrorMessage = "Cần nhập email"), EmailAddress(ErrorMessage = "Email không hợp lệ")] string Email,
+        [Required(ErrorMessage = "Cần nhập mật khẩu"), MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự")] string Password,
+        [Required(ErrorMessage = "Cần nhập họ tên")] string FullName,
         string? PhoneNumber,
         string? StudentCode);
     public record LoginModel([Required] string UserName, [Required] string Password, string Channel = "email");

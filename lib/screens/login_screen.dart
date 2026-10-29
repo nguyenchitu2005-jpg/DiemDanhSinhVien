@@ -18,27 +18,26 @@ class AuthLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(children: [
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top + 32, 24, 32),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [scheme.primary, scheme.tertiary]),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+            decoration: const BoxDecoration(
+              gradient: kBrandGradient,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
             ),
             child: Column(children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 36,
-                backgroundColor: scheme.onPrimary,
-                child: Icon(Icons.how_to_reg_rounded, size: 40, color: scheme.primary),
+                backgroundColor: Colors.white,
+                child: Icon(Icons.how_to_reg_rounded, size: 40, color: kGold),
               ),
               const SizedBox(height: 16),
-              Text(title, style: TextStyle(color: scheme.onPrimary, fontSize: 26, fontWeight: FontWeight.bold)),
+              Text(title, style: const TextStyle(color: kInk, fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text(subtitle, style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
+              Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: kInk.withValues(alpha: 0.75))),
             ]),
           ),
           Padding(padding: const EdgeInsets.all(24), child: child),
@@ -94,9 +93,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// OAuth 2.0: Google trả ID token, server kiểm tra token với Google rồi cấp JWT của app
   Future<void> _google() => _run(() async {
+    final clientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
+    if (clientId.isEmpty) {
+      showMsg(context, 'Chưa cấu hình Google Sign-In: điền GOOGLE_WEB_CLIENT_ID trong file .env (xem README mục 5)', error: true);
+      return;
+    }
     try {
       if (!_googleReady) {
-        await GoogleSignIn.instance.initialize(serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID']);
+        await GoogleSignIn.instance.initialize(serverClientId: clientId);
         _googleReady = true;
       }
       final account = await GoogleSignIn.instance.authenticate();

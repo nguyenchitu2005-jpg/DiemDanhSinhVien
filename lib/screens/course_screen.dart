@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../api.dart';
-import '../location.dart';
 import '../widgets.dart';
+import 'location_picker.dart';
 import 'session_screen.dart';
 
 /// Một lớp (giảng viên/Admin): CRUD buổi học, danh sách sinh viên, đặt vị trí phòng học
@@ -33,35 +34,22 @@ class _CourseScreenState extends State<CourseScreen> {
     await _students;
   }
 
-  /// Lấy GPS hiện tại của giảng viên (đang đứng trong phòng) làm tâm vùng điểm danh
+  /// Chọn vị trí phòng học trên bản đồ (mặc định là GPS hiện tại của giảng viên) + bán kính điểm danh
   Future<void> _setLocation() async {
-    final position = await guard(context, currentPosition);
-    if (position == null || !mounted) return;
-    final radius = TextEditingController(text: '${_course['radiusM']}');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Đặt vị trí phòng học'),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Vị trí hiện tại: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}\n'
-              'Sai số GPS ±${position.accuracy.toStringAsFixed(0)} m\n'),
-          Field(radius, 'Sinh viên phải ở trong bán kính (m)', keyboard: TextInputType.number),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Lưu')),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
+    final lat = _course['latitude'];
+    final picked = await Navigator.of(context).push<(LatLng, int)>(MaterialPageRoute(
+      builder: (_) => LocationPicker(initial: lat == null ? null : LatLng(lat, _course['longitude']), radiusM: _course['radiusM']),
+    ));
+    if (picked == null || !mounted) return;
+    final (point, radius) = picked;
     final body = {
       'code': _course['code'],
       'name': _course['name'],
       'room': _course['room'],
       'teacherId': _course['teacherId'],
-      'latitude': position.latitude,
-      'longitude': position.longitude,
-      'radiusM': int.tryParse(radius.text) ?? _course['radiusM'],
+      'latitude': point.latitude,
+      'longitude': point.longitude,
+      'radiusM': radius,
     };
     if (await guard(context, () => Api.put('Courses/${_course['id']}', body)) != null) {
       setState(() => _course.addAll(body));
@@ -141,7 +129,7 @@ class _CourseScreenState extends State<CourseScreen> {
             child: ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('Chưa đặt vị trí phòng học'),
-              subtitle: const Text('Sinh viên ở đâu cũng điểm danh được. Bấm để lấy vị trí hiện tại của bạn.'),
+              subtitle: const Text('Sinh viên ở đâu cũng điểm danh được. Bấm để chọn vị trí phòng trên bản đồ.'),
               onTap: _setLocation,
             ),
           ),
@@ -199,10 +187,7 @@ class _CourseScreenState extends State<CourseScreen> {
         ),
         for (final s in students)
           ListTile(
-            leading: CircleAvatar(
-              backgroundColor: s['atRisk'] ? scheme.errorContainer : null,
-              child: Text(s['fullName'].toString().trim().split(' ').last[0].toUpperCase()),
-            ),
+            leading: Avatar(s['fullName'], color: s['atRisk'] ? scheme.error : null),
             title: Text(s['fullName']),
             subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${s['studentCode'] ?? s['email'] ?? ''} · Có mặt ${s['attended']}/$total buổi'),

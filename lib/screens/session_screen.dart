@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../api.dart';
+import '../map.dart';
 import '../widgets.dart';
 
 /// Một buổi học: QR động (đổi mỗi 15 giây), danh sách điểm danh cập nhật liên tục, bản đồ vị trí sinh viên
@@ -160,26 +161,71 @@ class _SessionScreenState extends State<SessionScreen> {
         ]),
       );
     }
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      Text('Sinh viên mở app → "Quét QR điểm danh"', textAlign: TextAlign.center, style: TextStyle(color: scheme.outline)),
-      const SizedBox(height: 16),
-      Center(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-          child: _qr == null
-              ? const SizedBox(width: 280, height: 280, child: Center(child: CircularProgressIndicator()))
-              : QrImageView(data: _qr!, size: 280, backgroundColor: Colors.white),
-        ),
+    final total = _students.length;
+    return ListView(padding: const EdgeInsets.all(20), children: [
+      // QR trong khung gradient cho nổi bật khi chiếu lên màn hình lớp
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(gradient: kBrandGradient, borderRadius: BorderRadius.circular(28)),
+        child: Column(children: [
+          const Text('Mở app → "Quét QR điểm danh"', style: TextStyle(color: kInk, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            child: _qr == null
+                ? const SizedBox(width: 260, height: 260, child: Center(child: CircularProgressIndicator()))
+                : QrImageView(data: _qr!, size: 260, backgroundColor: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: Stack(alignment: Alignment.center, children: [
+                CircularProgressIndicator(
+                  value: _remain.clamp(0, 15) / 15,
+                  strokeWidth: 4,
+                  color: kInk,
+                  backgroundColor: Colors.white,
+                ),
+                Text('$_remain', style: const TextStyle(color: kInk, fontWeight: FontWeight.bold)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text('giây nữa mã tự đổi – ảnh chụp gửi bạn sẽ không dùng được',
+                  style: TextStyle(color: kInk)),
+            ),
+          ]),
+        ]),
       ),
       const SizedBox(height: 16),
-      LinearProgressIndicator(value: (_remain.clamp(0, 15)) / 15, borderRadius: BorderRadius.circular(4)),
-      const SizedBox(height: 8),
-      Text('Mã tự đổi sau $_remain giây – ảnh chụp mã gửi cho bạn sẽ không dùng được',
-          textAlign: TextAlign.center, style: TextStyle(color: scheme.outline)),
-      const SizedBox(height: 24),
-      Text('$present / ${_students.length}', textAlign: TextAlign.center, style: Theme.of(context).textTheme.displaySmall),
-      const Text('sinh viên đã điểm danh', textAlign: TextAlign.center),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            const IconBox(Icons.how_to_reg, color: Colors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$present / $total', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                const Text('sinh viên đã điểm danh'),
+              ]),
+            ),
+            SizedBox(
+              width: 56,
+              height: 56,
+              child: CircularProgressIndicator(
+                value: total == 0 ? 0 : present / total,
+                strokeWidth: 6,
+                color: Colors.green,
+                backgroundColor: Colors.green.withValues(alpha: 0.15),
+              ),
+            ),
+          ]),
+        ),
+      ),
     ]);
   }
 
@@ -197,6 +243,7 @@ class _SessionScreenState extends State<SessionScreen> {
               if (s['method'] == 'Manual') 'điểm danh tay',
             ].whereType<String>().join(' · ');
             return ListTile(
+              leading: Avatar(s['fullName'], color: attendanceLabels[s['status']]?.$2),
               title: Text(s['fullName']),
               subtitle: Text(info),
               trailing: StatusChip(s['status']),
@@ -205,6 +252,8 @@ class _SessionScreenState extends State<SessionScreen> {
           },
         );
 
+  /// Bản đồ: vòng bán kính phòng học, ghim phòng, vị trí từng SV (màu theo trạng thái) nối nét đứt về phòng,
+  /// chạm vào SV để xem chi tiết; chú thích số SV trong / ngoài vùng ở dưới
   Widget _mapTab() {
     final lat = _session['latitude'];
     final lng = _session['longitude'];
@@ -213,42 +262,143 @@ class _SessionScreenState extends State<SessionScreen> {
       return const EmptyView('Chưa có vị trí phòng học và chưa có sinh viên điểm danh', icon: Icons.location_off_outlined);
     }
     final room = lat == null ? null : LatLng(lat, lng);
-    final center = room ?? LatLng(located.first['latitude'], located.first['longitude']);
-    return FlutterMap(
-      options: MapOptions(initialCenter: center, initialZoom: 17),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.nguyen_chi_tu_kt',
+    LatLng pos(dynamic s) => LatLng(s['latitude'], s['longitude']);
+    final num radius = _session['radiusM'];
+    final inside = located.where((s) => s['distanceM'] != null && s['distanceM'] <= radius).length;
+    final noLocation = _students.where((s) => s['status'] != 'Absent' && s['latitude'] == null).length;
+
+    return Stack(children: [
+      AppMap(
+        center: room ?? pos(located.first),
+        fitPoints: [?room, ...located.map(pos)],
+        layers: [
+          if (room != null) roomCircle(room, radius),
+          if (room != null)
+            PolylineLayer(polylines: [
+              for (final s in located)
+                Polyline(
+                  points: [room, pos(s)],
+                  color: (attendanceLabels[s['status']]?.$2 ?? Colors.grey).withValues(alpha: 0.8),
+                  strokeWidth: 2,
+                  pattern: StrokePattern.dashed(segments: const [8, 6]),
+                ),
+            ]),
+          MarkerLayer(markers: [
+            if (room != null) roomMarker(room),
+            for (final s in located)
+              Marker(
+                point: pos(s),
+                width: 110,
+                height: 64,
+                alignment: Alignment.bottomCenter, // tâm chấm tròn nằm đúng toạ độ
+                child: GestureDetector(
+                  onTap: () => _studentSheet(s),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: CircleAvatar(
+                        radius: 15,
+                        backgroundColor: attendanceLabels[s['status']]?.$2 ?? Colors.grey,
+                        child: Text(initials(s['fullName']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        '${s['fullName'].toString().split(' ').last}'
+                        '${s['distanceM'] != null ? ' · ${(s['distanceM'] as num).toStringAsFixed(0)} m' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kInk),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+          ]),
+        ],
+      ),
+      // Chú thích
+      Positioned(
+        left: 12,
+        right: 72,
+        bottom: 28,
+        child: Card(
+          color: Colors.white,
+          elevation: 3,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(room == null ? 'Lớp chưa đặt vị trí phòng học' : 'Bán kính cho phép: $radius m',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: kInk)),
+              const SizedBox(height: 4),
+              Text('Trong vùng: $inside · Ngoài vùng: ${located.length - inside}'
+                  '${noLocation > 0 ? ' · Điểm danh tay: $noLocation' : ''}'),
+              const SizedBox(height: 6),
+              Wrap(spacing: 12, children: [
+                for (final k in ['Present', 'Late'])
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.circle, size: 12, color: attendanceLabels[k]!.$2),
+                    const SizedBox(width: 4),
+                    Text(attendanceLabels[k]!.$1, style: const TextStyle(fontSize: 12)),
+                  ]),
+                const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.location_on, size: 14, color: Color(0xFFC62828)),
+                  SizedBox(width: 2),
+                  Text('Phòng học', style: TextStyle(fontSize: 12)),
+                ]),
+              ]),
+            ]),
+          ),
         ),
-        if (room != null)
-          CircleLayer(circles: [
-            CircleMarker(
-              point: room,
-              radius: (_session['radiusM'] as num).toDouble(),
-              useRadiusInMeter: true,
-              color: Colors.indigo.withValues(alpha: 0.12),
-              borderColor: Colors.indigo,
-              borderStrokeWidth: 2,
+      ),
+    ]);
+  }
+
+  void _studentSheet(Map s) {
+    final num? d = s['distanceM'];
+    final num radius = _session['radiusM'];
+    showModalBottomSheet(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              leading: Avatar(s['fullName'], color: attendanceLabels[s['status']]?.$2),
+              title: Text(s['fullName'], style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(s['studentCode'] ?? ''),
+              trailing: StatusChip(s['status']),
+            ),
+            ListTile(leading: const Icon(Icons.schedule), title: Text('Điểm danh lúc ${fmtDate(s['checkedAt'], withYear: true)}')),
+            if (d != null)
+              ListTile(
+                leading: Icon(d <= radius ? Icons.verified : Icons.warning_amber, color: d <= radius ? Colors.green : Colors.orange),
+                title: Text('Cách phòng học ${d.toStringAsFixed(0)} m'),
+                subtitle: Text(d <= radius ? 'Trong bán kính $radius m' : 'Ngoài bán kính $radius m'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.place_outlined),
+              title: Text('${(s['latitude'] as num).toStringAsFixed(6)}, ${(s['longitude'] as num).toStringAsFixed(6)}'),
+              subtitle: const Text('Toạ độ GPS lúc điểm danh'),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                Navigator.pop(c);
+                _setStatus(s);
+              },
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Sửa trạng thái'),
             ),
           ]),
-        MarkerLayer(markers: [
-          if (room != null)
-            Marker(point: room, width: 40, height: 40, child: const Icon(Icons.meeting_room, color: Colors.indigo, size: 36)),
-          for (final s in located)
-            Marker(
-              point: LatLng(s['latitude'], s['longitude']),
-              width: 120,
-              height: 48,
-              child: Column(children: [
-                Icon(Icons.person_pin_circle, color: attendanceLabels[s['status']]?.$2 ?? Colors.grey, size: 28),
-                Text(s['fullName'].toString().split(' ').last,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, backgroundColor: Colors.white70)),
-              ]),
-            ),
-        ]),
-        const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
-      ],
+        ),
+      ),
     );
   }
 }

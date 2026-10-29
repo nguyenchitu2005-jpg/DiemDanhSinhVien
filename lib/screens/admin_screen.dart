@@ -13,15 +13,24 @@ class AdminScreen extends StatelessWidget {
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
     child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Trang quản trị'),
-        actions: [profileAction(context)],
-        bottom: const TabBar(tabs: [
-          Tab(icon: Icon(Icons.people_alt_outlined), text: 'Tài khoản'),
-          Tab(icon: Icon(Icons.class_outlined), text: 'Lớp học'),
-        ]),
-      ),
-      body: const TabBarView(children: [_UsersTab(), _CoursesTab()]),
+      body: Column(children: [
+        HomeHeader(
+          subtitle: 'Trang quản trị',
+          title: Auth.fullName,
+          actions: [profileAction(context)],
+          bottom: const TabBar(
+            labelColor: kInk,
+            unselectedLabelColor: Color(0x994A3712),
+            indicatorColor: kInk,
+            dividerColor: Colors.transparent,
+            tabs: [
+              Tab(icon: Icon(Icons.people_alt_outlined), text: 'Tài khoản'),
+              Tab(icon: Icon(Icons.class_outlined), text: 'Lớp học'),
+            ],
+          ),
+        ),
+        const Expanded(child: TabBarView(children: [_UsersTab(), _CoursesTab()])),
+      ]),
     ),
   );
 }
@@ -78,7 +87,7 @@ class _UsersTabState extends State<_UsersTab> {
                 Field(phone, 'Số điện thoại', keyboard: TextInputType.phone),
                 if (role == 'Student') Field(code, 'Mã sinh viên'),
                 Field(password, user == null ? 'Mật khẩu' : 'Mật khẩu mới (để trống: giữ nguyên)',
-                    obscure: true, validator: user == null ? notEmpty : null),
+                    obscure: true, validator: (v) => user != null && (v ?? '').isEmpty ? null : strongPassword(v)),
               ]),
             ),
           ),
@@ -147,21 +156,36 @@ class _UsersTabState extends State<_UsersTab> {
           builder: (users) => users.isEmpty
               ? const EmptyView('Chưa có tài khoản')
               : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 88),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
                   itemCount: users.length,
                   itemBuilder: (_, i) {
                     final u = users[i];
-                    return ListTile(
-                      leading: CircleAvatar(child: Text(u['fullName'].toString().trim().split(' ').last[0].toUpperCase())),
-                      title: Text(u['fullName']),
-                      subtitle: Text('${u['userName']} · ${u['email'] ?? ''}${u['studentCode'] != null ? ' · ${u['studentCode']}' : ''}'),
-                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        if (u['hasFace']) const Icon(Icons.face, size: 18, color: Colors.green),
-                        const SizedBox(width: 4),
-                        Chip(label: Text(roleLabels[u['role']] ?? '-'), visualDensity: VisualDensity.compact),
-                        IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _delete(u)),
-                      ]),
-                      onTap: () => _edit(u),
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(12, 4, 0, 4),
+                        leading: Avatar(u['fullName'], color: roleColors[u['role']]),
+                        title: Row(children: [
+                          Flexible(child: Text(u['fullName'], overflow: TextOverflow.ellipsis)),
+                          if (u['hasFace']) const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Tooltip(message: 'Đã đăng ký khuôn mặt', child: Icon(Icons.face, size: 16, color: Colors.green)),
+                          ),
+                        ]),
+                        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${u['userName']}${u['studentCode'] != null ? ' · ${u['studentCode']}' : ''}\n${u['email'] ?? ''}',
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          RoleChip(u['role']),
+                        ]),
+                        trailing: PopupMenuButton(
+                          itemBuilder: (_) => [
+                            PopupMenuItem(onTap: () => _edit(u), child: const ListTile(leading: Icon(Icons.edit_outlined), title: Text('Sửa'))),
+                            PopupMenuItem(onTap: () => _delete(u), child: const ListTile(leading: Icon(Icons.delete_outline), title: Text('Xoá'))),
+                          ],
+                        ),
+                        onTap: () => _edit(u),
+                      ),
                     );
                   },
                 ),
@@ -274,8 +298,11 @@ class _CoursesTabState extends State<_CoursesTab> {
               itemBuilder: (_, i) {
                 final c = courses[i];
                 return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    title: Text('${c['code']} · ${c['name']}'),
+                    contentPadding: const EdgeInsets.fromLTRB(12, 4, 0, 4),
+                    leading: const IconBox(Icons.menu_book_rounded),
+                    title: Text('${c['code']} · ${c['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('GV: ${c['teacherName'] ?? '(chưa gán)'}\n'
                         'Phòng ${c['room'] ?? '-'} · ${c['studentCount']} SV · ${c['sessionCount']} buổi · Mã vào lớp ${c['joinCode']}'),
                     isThreeLine: true,
