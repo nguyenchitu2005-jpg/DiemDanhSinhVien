@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -136,19 +138,24 @@ String initials(String? name) {
   return last.isEmpty ? '?' : last[0].toUpperCase();
 }
 
+/// Ảnh đại diện (JPEG base64) nếu có, không thì chữ cái đầu của tên
 class Avatar extends StatelessWidget {
-  const Avatar(this.name, {super.key, this.color, this.radius = 20});
+  const Avatar(this.name, {super.key, this.color, this.radius = 20, this.image, this.background});
   final String? name;
   final Color? color;
   final double radius;
+  final String? image;
+  final Color? background;
 
   @override
   Widget build(BuildContext context) {
     final c = color ?? Theme.of(context).colorScheme.primary;
+    final img = image;
     return CircleAvatar(
       radius: radius,
-      backgroundColor: c.withValues(alpha: 0.15),
-      child: Text(initials(name), style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: radius * 0.8)),
+      backgroundColor: background ?? c.withValues(alpha: 0.15),
+      backgroundImage: img == null ? null : MemoryImage(base64Decode(img)),
+      child: img != null ? null : Text(initials(name), style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: radius * 0.8)),
     );
   }
 }

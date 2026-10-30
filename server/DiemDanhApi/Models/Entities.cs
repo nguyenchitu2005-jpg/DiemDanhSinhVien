@@ -17,6 +17,11 @@ public class User : IdentityUser
     public string? StudentCode { get; set; }
     // Vector khuôn mặt (FaceNet-512, đã chuẩn hoá L2) dạng JSON, không lưu ảnh
     public string? FaceEmbedding { get; set; }
+    // Ảnh đại diện JPEG base64, app đã thu nhỏ về 256px
+    public string? Avatar { get; set; }
+    // SHA-256 của khoá đăng nhập vân tay lưu trên máy (chỉ 1 máy: bật ở máy mới thì máy cũ hết dùng)
+    [MaxLength(64)]
+    public string? BiometricKeyHash { get; set; }
 }
 
 /// Lớp học phần

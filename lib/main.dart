@@ -7,6 +7,7 @@ import 'screens/admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/student_screen.dart';
 import 'screens/teacher_screen.dart';
+import 'settings.dart';
 import 'widgets.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -15,6 +16,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env'); // BASE_URL, GOOGLE_WEB_CLIENT_ID
   await Auth.load();
+  await AppSettings.load();
   Auth.onExpired = () => navigatorKey.currentState?.pushAndRemoveUntil(
     MaterialPageRoute(builder: (_) => const LoginScreen()),
     (_) => false,
@@ -33,13 +35,13 @@ class App extends StatelessWidget {
   const App({super.key});
 
   /// Tông vàng kem + trắng: nền trắng, thẻ màu kem nhạt, nút vàng đậm (màu gốc kGold)
-  static ThemeData _theme() {
+  static ThemeData _theme(Color background) {
     final scheme = ColorScheme.fromSeed(seedColor: kGold).copyWith(surface: Colors.white);
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: Colors.white,
-      appBarTheme: const AppBarTheme(backgroundColor: Colors.white, surfaceTintColor: Colors.transparent, foregroundColor: kInk),
+      scaffoldBackgroundColor: background,
+      appBarTheme: AppBarTheme(backgroundColor: background, surfaceTintColor: Colors.transparent, foregroundColor: kInk),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         filled: true,
@@ -70,14 +72,24 @@ class App extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Điểm danh SV',
-    navigatorKey: navigatorKey,
-    debugShowCheckedModeBanner: false,
-    theme: _theme(),
-    locale: const Locale('vi'),
-    supportedLocales: const [Locale('vi'), Locale('en')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    home: Auth.token == null ? const LoginScreen() : homeFor(Auth.role),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([AppSettings.textScale, AppSettings.background]),
+    builder: (context, _) => MaterialApp(
+      title: 'Điểm danh SV',
+      navigatorKey: navigatorKey,
+      debugShowCheckedModeBanner: false,
+      theme: _theme(AppSettings.background.value),
+      locale: const Locale('vi'),
+      supportedLocales: const [Locale('vi'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // cỡ chữ trong Cài đặt nhân thêm vào cỡ chữ của hệ thống
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(MediaQuery.textScalerOf(context).scale(1) * AppSettings.textScale.value),
+        ),
+        child: child!,
+      ),
+      home: Auth.token == null ? const LoginScreen() : homeFor(Auth.role),
+    ),
   );
 }

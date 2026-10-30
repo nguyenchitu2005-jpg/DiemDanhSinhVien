@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Google.Apis.Auth;
@@ -28,6 +29,9 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
     public record FaceLoginModel([Required] string UserName, [Required] List<List<double>> Embeddings);
     public record ProfileModel([Required] string FullName, string? PhoneNumber, string? StudentCode);
     public record ChangePasswordModel([Required] string CurrentPassword, [Required] string NewPassword);
+    public record BiometricLoginModel([Required] string UserName, [Required] string Key);
+    // ~200 KB base64; null hoặc rỗng là xoá ảnh
+    public record AvatarModel([MaxLength(200_000)] string? Avatar);
 
     private const int FaceLength = 512;
 
@@ -167,6 +171,60 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
         return await TokenResult(user);
     }
 
+    /// Bật vân tay: sau khi đăng nhập, cấp khoá ngẫu nhiên cho máy này; server chỉ giữ SHA-256 của khoá
+    [HttpPost("biometric")]
+    [Authorize]
+    public async Task<IActionResult> EnableBiometric()
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user == null) return NotFound();
+        var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        user.BiometricKeyHash = HashKey(key);
+        await userManager.UpdateAsync(user);
+        return Ok(new { Status = true, Key = key });
+    }
+
+    [HttpDelete("biometric")]
+    [Authorize]
+    public async Task<IActionResult> DisableBiometric()
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user == null) return NotFound();
+        user.BiometricKeyHash = null;
+        await userManager.UpdateAsync(user);
+        return Done("Đã tắt đăng nhập bằng vân tay");
+    }
+
+    /// Đăng nhập bằng vân tay: app xác thực vân tay trên máy rồi gửi khoá đã lưu
+    [HttpPost("biometric-login")]
+    public async Task<IActionResult> BiometricLogin([FromBody] BiometricLoginModel model)
+    {
+        var user = await FindUser(model.UserName);
+        if (user?.BiometricKeyHash == null) return Unauthorized(Msg("Vân tay chưa được bật cho tài khoản này, hãy đăng nhập bằng mật khẩu"));
+        if (await userManager.IsLockedOutAsync(user)) return Unauthorized(Msg("Tài khoản tạm khoá do sai nhiều lần, thử lại sau 5 phút"));
+        if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(HashKey(model.Key)), Encoding.ASCII.GetBytes(user.BiometricKeyHash)))
+        {
+            await userManager.AccessFailedAsync(user);
+            return Unauthorized(Msg("Vân tay trên máy này đã hết hiệu lực, hãy đăng nhập bằng mật khẩu"));
+        }
+        await userManager.ResetAccessFailedCountAsync(user);
+        return await TokenResult(user);
+    }
+
+    [HttpPut("avatar")]
+    [Authorize]
+    public async Task<IActionResult> UpdateAvatar([FromBody] AvatarModel model)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user == null) return NotFound();
+        var avatar = string.IsNullOrWhiteSpace(model.Avatar) ? null : model.Avatar;
+        if (avatar != null && !Convert.TryFromBase64String(avatar, new byte[avatar.Length], out _))
+            return BadRequest(Msg("Ảnh đại diện không hợp lệ"));
+        user.Avatar = avatar;
+        await userManager.UpdateAsync(user);
+        return Done(avatar == null ? "Đã xoá ảnh đại diện" : "Đã cập nhật ảnh đại diện");
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> Me()
@@ -181,6 +239,7 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
             user.FullName,
             user.PhoneNumber,
             user.StudentCode,
+            user.Avatar,
             HasFace = user.FaceEmbedding != null,
             HasPassword = user.PasswordHash != null,
             Role = (await userManager.GetRolesAsync(user)).FirstOrDefault(),
@@ -210,7 +269,15 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
         var result = user.PasswordHash == null
             ? await userManager.AddPasswordAsync(user, model.NewPassword)
             : await userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
-        return result.Succeeded ? Done("Đã đổi mật khẩu") : BadRequest(Msg(Errors(result)));
+        if (!result.Succeeded) return BadRequest(Msg(Errors(result)));
+        if (user.BiometricKeyHash != null)
+        {
+            // Đổi mật khẩu thì khoá vân tay cũ hết hiệu lực, phải bật lại
+            user.BiometricKeyHash = null;
+            await userManager.UpdateAsync(user);
+            return Done("Đã đổi mật khẩu. Đăng nhập bằng vân tay đã tắt, bật lại trong Hồ sơ & cài đặt");
+        }
+        return Done("Đã đổi mật khẩu");
     }
 
     private async Task<User?> FindUser(string name) =>
@@ -256,8 +323,10 @@ public class AuthController(UserManager<User> userManager, IConfiguration config
             new("fullName", user.FullName),
         };
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
-        return Ok(new { Status = true, Token = GenerateToken(claims), Role = roles.FirstOrDefault(), user.FullName, user.UserName });
+        return Ok(new { Status = true, Token = GenerateToken(claims), Role = roles.FirstOrDefault(), user.FullName, user.UserName, user.Avatar });
     }
+
+    private static string HashKey(string key) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
 
     private string GenerateToken(IEnumerable<Claim> claims)
     {

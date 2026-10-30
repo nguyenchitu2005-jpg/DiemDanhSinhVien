@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../api.dart';
 import '../face/face_scan_screen.dart';
@@ -114,6 +115,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   });
 
+  /// Vân tay xác thực trên máy, rồi gửi khoá đã lưu từ lần đăng nhập mật khẩu trước để lấy JWT
+  Future<void> _fingerprint() async {
+    final user = Auth.biometricUser;
+    if (user == null) {
+      showMsg(context, 'Đăng nhập bằng mật khẩu một lần, lần sau sẽ dùng được vân tay', error: true);
+      return;
+    }
+    try {
+      final ok = await LocalAuthentication().authenticate(localizedReason: 'Đăng nhập tài khoản $user', biometricOnly: true);
+      if (!ok || !mounted) return;
+    } on LocalAuthException catch (e) {
+      if (mounted) showMsg(context, 'Vân tay: ${e.description ?? e.code.name}', error: true);
+      return;
+    }
+    await _run(() async {
+      final r = await guard(context, Auth.biometricLogin, showSuccess: false);
+      if (r != null) _goHome(r);
+    });
+  }
+
   /// Quét mặt (có kiểm tra nháy mắt) → gửi vector 2 ảnh lên server so với khuôn mặt đã đăng ký
   Future<void> _face() async {
     if (_user.text.trim().isEmpty) {
@@ -143,19 +164,31 @@ class _LoginScreenState extends State<LoginScreen> {
         Field(_user, 'Tên đăng nhập hoặc email', icon: Icons.person_outline, validator: notEmpty),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: TextFormField(
-            controller: _pass,
-            obscureText: !_showPass,
-            validator: notEmpty,
-            decoration: InputDecoration(
-              labelText: 'Mật khẩu',
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _showPass = !_showPass),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: TextFormField(
+                controller: _pass,
+                obscureText: !_showPass,
+                validator: notEmpty,
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _showPass = !_showPass),
+                  ),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              tooltip: 'Đăng nhập bằng vân tay',
+              iconSize: 32,
+              padding: const EdgeInsets.all(10),
+              onPressed: _busy ? null : _fingerprint,
+              icon: const Icon(Icons.fingerprint),
+            ),
+          ]),
         ),
         Text('Mã OTP sẽ được gửi về email của tài khoản', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
         const SizedBox(height: 20),

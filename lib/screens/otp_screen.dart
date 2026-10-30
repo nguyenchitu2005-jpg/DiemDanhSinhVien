@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../api.dart';
 import '../main.dart';
@@ -61,6 +62,10 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() => _busy = false);
     if (r == null) return;
     await Auth.save(r);
+    // Lần đầu đăng nhập bằng mật khẩu trên máy có vân tay: bật luôn để lần sau đăng nhập bằng vân tay
+    try {
+      if (Auth.biometricUser != Auth.userName && await LocalAuthentication().canCheckBiometrics) await Auth.enableBiometric();
+    } catch (_) {} // không bật được thì vẫn vào app, bật lại trong Hồ sơ & cài đặt
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => homeFor(Auth.role)), (_) => false);
   }

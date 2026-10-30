@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -30,6 +31,8 @@ class Auth {
   static String role = '';
   static String fullName = '';
   static String userName = '';
+  /// Ảnh đại diện JPEG base64; ValueNotifier để nút hồ sơ trên mọi trang tự đổi ảnh
+  static final avatar = ValueNotifier<String?>(null);
 
   /// Gọi khi token hết hạn (API trả 401) để app quay về màn đăng nhập
   static void Function()? onExpired;
@@ -41,6 +44,7 @@ class Auth {
     role = _prefs.getString('role') ?? '';
     fullName = _prefs.getString('fullName') ?? '';
     userName = _prefs.getString('userName') ?? '';
+    avatar.value = _prefs.getString('avatar');
   }
 
   /// Lưu kết quả đăng nhập {token, role, fullName, userName}
@@ -53,7 +57,39 @@ class Auth {
     await _prefs.setString('role', role);
     await _prefs.setString('fullName', fullName);
     await _prefs.setString('userName', userName); // điền sẵn khi đăng nhập bằng khuôn mặt lần sau
+    await setAvatar(result['avatar']);
   }
+
+  static Future<void> setAvatar(String? value) async {
+    avatar.value = value;
+    value == null ? await _prefs.remove('avatar') : await _prefs.setString('avatar', value);
+  }
+
+  /// Tài khoản đã bật đăng nhập vân tay trên máy này (sau lần đăng nhập mật khẩu đầu tiên).
+  /// shortcut: khoá lưu trong SharedPreferences (vùng riêng của app, giống token); cần chặt hơn thì dùng flutter_secure_storage
+  static String? get biometricUser => _prefs.getString('bioUser');
+
+  /// Xin server khoá vân tay cho tài khoản đang đăng nhập, lưu lại trên máy
+  static Future<void> enableBiometric() async {
+    final r = await Api.post('Auth/biometric');
+    await _prefs.setString('bioUser', userName);
+    await _prefs.setString('bioKey', r['key']);
+  }
+
+  static Future<void> disableBiometric() async {
+    await Api.delete('Auth/biometric');
+    await forgetBiometric();
+  }
+
+  /// Chỉ xoá khoá trên máy (server đã tự xoá, vd khi đổi mật khẩu)
+  static Future<void> forgetBiometric() async {
+    await _prefs.remove('bioUser');
+    await _prefs.remove('bioKey');
+  }
+
+  /// Gọi sau khi vân tay đã xác thực trên máy: đổi khoá đã lưu lấy JWT
+  static Future<dynamic> biometricLogin() =>
+      Api.post('Auth/biometric-login', {'userName': biometricUser, 'key': _prefs.getString('bioKey')});
 
   static Future<void> logout() async {
     token = null;
