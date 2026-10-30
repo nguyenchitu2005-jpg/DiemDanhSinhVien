@@ -35,7 +35,7 @@ class App extends StatelessWidget {
   const App({super.key});
 
   /// Tông vàng kem + trắng: nền trắng, thẻ màu kem nhạt, nút vàng đậm (màu gốc kGold)
-  static ThemeData _theme(Color background) {
+  static ThemeData _theme(Color background, Color card) {
     final scheme = ColorScheme.fromSeed(seedColor: kGold).copyWith(surface: Colors.white);
     return ThemeData(
       colorScheme: scheme,
@@ -62,7 +62,7 @@ class App extends StatelessWidget {
       floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: kCreamDeep, foregroundColor: kInk),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: const Color(0xFFFFFBF1),
+        color: card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: kCreamDeep.withValues(alpha: 0.7)),
@@ -73,12 +73,12 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([AppSettings.textScale, AppSettings.background]),
+    listenable: AppSettings.all,
     builder: (context, _) => MaterialApp(
       title: 'Điểm danh SV',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      theme: _theme(AppSettings.background.value),
+      theme: _theme(AppSettings.background.value, AppSettings.card.value),
       locale: const Locale('vi'),
       supportedLocales: const [Locale('vi'), Locale('en')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

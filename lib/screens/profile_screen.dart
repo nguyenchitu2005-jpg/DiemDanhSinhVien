@@ -246,7 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   );
 }
 
-/// Cỡ chữ và màu nền: đổi là áp dụng ngay cho cả app, lưu trên máy
+/// Cỡ chữ, màu nền, màu ô: đổi là áp dụng ngay cho cả app, lưu trên máy
 class _AppearanceCard extends StatelessWidget {
   const _AppearanceCard();
 
@@ -255,7 +255,7 @@ class _AppearanceCard extends StatelessWidget {
     child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: ListenableBuilder(
-        listenable: Listenable.merge([AppSettings.textScale, AppSettings.background]),
+        listenable: AppSettings.all,
         builder: (context, _) {
           final percent = '${(AppSettings.textScale.value * 100).round()}%';
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -268,35 +268,151 @@ class _AppearanceCard extends StatelessWidget {
               label: percent,
               onChanged: AppSettings.setTextScale,
             ),
-            const Row(children: [Icon(Icons.palette_outlined), SizedBox(width: 16), Text('Màu nền')]),
-            const SizedBox(height: 12),
-            Wrap(spacing: 12, runSpacing: 12, children: [
-              for (final MapEntry(key: name, value: color) in AppSettings.backgrounds.entries)
-                Semantics(
-                  label: 'Nền $name',
-                  selected: AppSettings.background.value == color,
-                  button: true,
-                  child: Tooltip(
-                    message: name,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => AppSettings.setBackground(color),
-                      child: CircleAvatar(
-                        radius: 22,
-                        backgroundColor: AppSettings.background.value == color ? kGold : kCreamDeep,
-                        child: CircleAvatar(
-                          radius: 19,
-                          backgroundColor: color,
-                          child: AppSettings.background.value == color ? const Icon(Icons.check, color: kInk) : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ]),
+            _swatches(context, Icons.palette_outlined, 'Màu nền', AppSettings.backgrounds, AppSettings.background.value, AppSettings.setBackground),
+            const SizedBox(height: 20),
+            _swatches(context, Icons.dashboard_outlined, 'Màu ô', AppSettings.cards, AppSettings.card.value, AppSettings.setCard),
           ]);
         },
       ),
     ),
   );
+
+  /// Hàng màu có sẵn + ô cầu vồng cuối hàng để tự chọn màu bằng thanh kéo
+  Widget _swatches(BuildContext context, IconData icon, String title, Map<String, Color> colors, Color current,
+      ValueChanged<Color> onPick) {
+    final custom = !colors.containsValue(current);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Icon(icon), const SizedBox(width: 16), Text(title)]),
+      const SizedBox(height: 12),
+      Wrap(spacing: 12, runSpacing: 12, children: [
+        for (final MapEntry(key: name, value: color) in colors.entries)
+          _swatch(label: '$title $name', selected: current == color, onTap: () => onPick(color), color: color),
+        _swatch(
+          label: '$title tuỳ chỉnh',
+          selected: custom,
+          color: custom ? current : null,
+          onTap: () async {
+            final picked = await _pickColor(context, title, current);
+            if (picked != null) onPick(picked);
+          },
+        ),
+      ]),
+    ]);
+  }
+
+  /// Ô tròn chọn màu; color null là ô cầu vồng "tuỳ chỉnh"
+  Widget _swatch({required String label, required bool selected, required VoidCallback onTap, Color? color}) => Semantics(
+    label: label,
+    selected: selected,
+    button: true,
+    child: Tooltip(
+      message: label,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: CircleAvatar(
+          radius: 22,
+          backgroundColor: selected ? kGold : kCreamDeep,
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              gradient: color == null ? SweepGradient(colors: _hues(0.8)) : null,
+            ),
+            child: selected ? const Icon(Icons.check, color: kInk) : (color == null ? const Icon(Icons.colorize, color: kInk, size: 20) : null),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Dải 7 màu cầu vồng (đỏ → đỏ) ở độ sáng [light]
+List<Color> _hues(double light) => [for (var h = 0; h <= 360; h += 60) HSLColor.fromAHSL(1, h.toDouble(), 0.7, light).toColor()];
+
+/// Hộp chọn màu: thanh sắc màu + thanh độ nhạt. Độ sáng chặn ≥ 75% để chữ nâu đậm vẫn đọc rõ
+Future<Color?> _pickColor(BuildContext context, String title, Color initial) {
+  final start = HSLColor.fromColor(initial);
+  var hue = start.hue;
+  var light = start.lightness.clamp(0.75, 0.98);
+  Color color() => HSLColor.fromAHSL(1, hue, 0.7, light).toColor();
+  return showDialog<Color>(
+    context: context,
+    builder: (c) => StatefulBuilder(
+      builder: (c, setState) => AlertDialog(
+        title: Text('$title tuỳ chỉnh'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: color(),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: kCreamDeep),
+            ),
+            alignment: Alignment.center,
+            child: const Text('Chữ mẫu', style: TextStyle(color: kInk, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 16),
+          const Text('Sắc màu'),
+          _GradientSlider(
+            label: 'Sắc màu',
+            colors: _hues(0.6),
+            value: hue,
+            max: 360,
+            onChanged: (v) => setState(() => hue = v),
+          ),
+          const Text('Độ nhạt'),
+          _GradientSlider(
+            label: 'Độ nhạt',
+            colors: [HSLColor.fromAHSL(1, hue, 0.7, 0.75).toColor(), Colors.white],
+            value: light,
+            min: 0.75,
+            max: 0.98,
+            onChanged: (v) => setState(() => light = v),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Huỷ')),
+          FilledButton(onPressed: () => Navigator.pop(c, color()), child: const Text('Chọn')),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Slider của Material (kéo, bấm, đọc màn hình đều được) đặt trên một dải màu gradient
+class _GradientSlider extends StatelessWidget {
+  const _GradientSlider({
+    required this.label,
+    required this.colors,
+    required this.value,
+    required this.onChanged,
+    this.min = 0,
+    required this.max,
+  });
+  final String label;
+  final List<Color> colors;
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Stack(alignment: Alignment.center, children: [
+    Container(
+      height: 16,
+      margin: const EdgeInsets.symmetric(horizontal: 24), // khớp phần lề của Slider
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), gradient: LinearGradient(colors: colors)),
+    ),
+    SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        activeTrackColor: Colors.transparent,
+        inactiveTrackColor: Colors.transparent,
+        thumbColor: kInk,
+      ),
+      child: Slider(value: value, min: min, max: max, label: label, semanticFormatterCallback: (_) => label, onChanged: onChanged),
+    ),
+  ]);
 }
